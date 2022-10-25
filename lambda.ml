@@ -23,6 +23,7 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
+  | TmFix of term (* Used for recursion *)
 ;;
 
 
@@ -108,16 +109,25 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
-           TyArr (tyT11, tyT12) ->
-             if tyT2 = tyT11 then tyT12
-             else raise (Type_error "parameter type mismatch")
-         | _ -> raise (Type_error "arrow type expected"))
+            TyArr (tyT11, tyT12) ->
+              if tyT2 = tyT11 then tyT12
+              else raise (Type_error "parameter type mismatch")
+          | _ -> raise (Type_error "arrow type expected"))
 
     (* T-Let *)
   | TmLetIn (x, t1, t2) ->
       let tyT1 = typeof ctx t1 in
       let ctx' = addbinding ctx x tyT1 in
       typeof ctx' t2
+
+    (* T-Fix *)
+  | TmFix (t1) ->
+      let tyT1 = typeof ctx t1 in
+      (match tyT1 with
+          TyArr (tyT11, tyT12) ->
+            if tyT11 = tyT12 then tyT12
+            else raise (Type_error "result of body not compatible with domain")
+        | _ -> raise (Type_error "arrow type expected"))
 ;;
 
 
@@ -152,6 +162,8 @@ let rec string_of_term = function
       "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
   | TmLetIn (s, t1, t2) ->
       "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
+  | TmFix (t1) ->
+      "(fix " ^ string_of_term t1 ^ ")"
 ;;
 
 let rec ldif l1 l2 = match l1 with
@@ -187,6 +199,8 @@ let rec free_vars tm = match tm with
       lunion (free_vars t1) (free_vars t2)
   | TmLetIn (s, t1, t2) ->
       lunion (ldif (free_vars t2) [s]) (free_vars t1)
+  | TmFix (t1) ->
+      free_vars t1
 ;;
 
 let rec fresh_name x l =
@@ -213,19 +227,21 @@ let rec subst x s tm = match tm with
   | TmAbs (y, tyY, t) -> 
       if y = x then tm
       else let fvs = free_vars s in
-           if not (List.mem y fvs)
-           then TmAbs (y, tyY, subst x s t)
-           else let z = fresh_name y (free_vars t @ fvs) in
+          if not (List.mem y fvs)
+          then TmAbs (y, tyY, subst x s t)
+          else let z = fresh_name y (free_vars t @ fvs) in
                 TmAbs (z, tyY, subst x s (subst y (TmVar z) t))  
   | TmApp (t1, t2) ->
       TmApp (subst x s t1, subst x s t2)
   | TmLetIn (y, t1, t2) ->
       if y = x then TmLetIn (y, subst x s t1, t2)
       else let fvs = free_vars s in
-           if not (List.mem y fvs)
-           then TmLetIn (y, subst x s t1, subst x s t2)
-           else let z = fresh_name y (free_vars t2 @ fvs) in
+          if not (List.mem y fvs)
+          then TmLetIn (y, subst x s t1, subst x s t2)
+          else let z = fresh_name y (free_vars t2 @ fvs) in
                 TmLetIn (z, subst x s t1, subst x s (subst y (TmVar z) t2))
+  | TmFix (t1) ->
+      TmFix (subst x s t1)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -312,6 +328,15 @@ let rec eval1 tm = match tm with
   | TmLetIn(x, t1, t2) ->
       let t1' = eval1 t1 in
       TmLetIn (x, t1', t2) 
+
+    (* E-FixBeta *)
+  | TmFix (TmAbs (x, _, t2)) ->
+      subst x tm t2
+
+    (* E-Fix *)
+  | TmFix(t1) ->
+      let t1' = eval1 t1 in
+      TmFix(t1')
 
   | _ ->
       raise NoRuleApplies

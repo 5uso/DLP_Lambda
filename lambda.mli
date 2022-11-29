@@ -57,3 +57,5 @@ val eval : context -> term -> term;;
 val substall : context -> term -> term;;
 (* Executes a command, returning the updated context *)
 val run_cmd : context -> cmd -> context;;
+val check_cmd : context -> cmd -> context;;
+val run_cmd_silent : context -> cmd -> context;;

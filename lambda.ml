@@ -489,3 +489,20 @@ let run_cmd ctx = function
       let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
       addbinding ctx x (typeof ctx bind) bind
 ;;
+
+let check_cmd ctx = function
+    CmdTerm (tm) -> 
+      ignore (typeof ctx tm); ctx
+  | CmdBind (x, bind) ->
+      let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
+      addbinding ctx x (typeof ctx bind) bind
+;;
+
+let run_cmd_silent ctx = function
+    CmdTerm (tm) -> 
+      ignore (eval ctx tm); ctx
+  | CmdBind (x, bind) ->
+      let bind = eval ctx bind in (* Evaluate whatever we can *)
+      let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
+      addbinding ctx x (typeof ctx bind) bind
+;;

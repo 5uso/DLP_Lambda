@@ -5,10 +5,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
-;;
-
-type context =
-  (string * ty) list
+  | TyUnit (* Unit type *)
 ;;
 
 type term =
@@ -19,11 +16,34 @@ type term =
   | TmSucc of term
   | TmPred of term
   | TmIsZero of term
+  | TmPrintNat of term
+  | TmPrintString of term
+  | TmPrintNewline of term
+  | TmReadNat of term
+  | TmReadString of term
   | TmVar of string
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmFix of term (* Used for recursion *)
+  | TmUnit (* Unit term *)
+;;
+
+(* Context now keeps track of values as well as types *)
+type context =
+  (string * ty * term) list
+;;
+
+type cmd = (* For statements that aren't treated as terms *)
+    CmdTerm of term
+  | CmdBind of string * term
+;;
+
+
+(* Int to Nat *)
+let rec int_to_nat = function
+    0 -> TmZero
+  | n -> TmSucc (int_to_nat (n - 1))
 ;;
 
 
@@ -33,12 +53,13 @@ let emptyctx =
   []
 ;;
 
-let addbinding ctx x bind =
-  (x, bind) :: ctx
+let addbinding ctx x ty value =
+  (x, ty, value) :: ctx
 ;;
 
 let getbinding ctx x =
-  List.assoc x ctx
+  let f a b = match b with (c, _, _) -> c = a
+  in List.find (f x) ctx
 ;;
 
 
@@ -51,6 +72,8 @@ let rec string_of_ty ty = match ty with
       "Nat"
   | TyArr (ty1, ty2) ->
       "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
+  | TyUnit ->
+      "Unit"
 ;;
 
 exception Type_error of string
@@ -64,6 +87,10 @@ let rec typeof ctx tm = match tm with
     (* T-False *)
   | TmFalse ->
       TyBool
+
+    (* T-Unit *)
+  | TmUnit ->
+      TyUnit
 
     (* T-If *)
   | TmIf (t1, t2, t3) ->
@@ -93,14 +120,39 @@ let rec typeof ctx tm = match tm with
       if typeof ctx t1 = TyNat then TyBool
       else raise (Type_error "argument of iszero is not a number")
 
+    (* T-PrintNat *)
+  | TmPrintNat t1 ->
+      if typeof ctx t1 = TyNat then TyUnit
+      else raise (Type_error "argument of print_nat is not a number")
+
+    (* T-PrintString *)
+  | TmPrintString t1 ->
+      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      else raise (Type_error "argument of print_string is not a string")
+
+    (* T-PrintNewline *)
+  | TmPrintNewline t1 ->
+      if typeof ctx t1 = TyUnit then TyUnit
+      else raise (Type_error "argument of print_newline is not unit")
+
+    (* T-ReadNat *)
+  | TmReadNat t1 ->
+      if typeof ctx t1 = TyUnit then TyNat
+      else raise (Type_error "argument of read_nat is not unit")
+
+    (* T-ReadString *)
+  | TmReadString t1 ->
+      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      else raise (Type_error "argument of read_string is not unit")
+
     (* T-Var *)
   | TmVar x ->
-      (try getbinding ctx x with
+      (try (match getbinding ctx x with (_, ty, _) -> ty) with
        _ -> raise (Type_error ("no binding type for variable " ^ x)))
 
     (* T-Abs *)
   | TmAbs (x, tyT1, t2) ->
-      let ctx' = addbinding ctx x tyT1 in
+      let ctx' = addbinding ctx x tyT1 t2 in
       let tyT2 = typeof ctx' t2 in
       TyArr (tyT1, tyT2)
 
@@ -110,14 +162,14 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
             TyArr (tyT11, tyT12) ->
-              if tyT2 = tyT11 then tyT12
+              if tyT2 = tyT11 || tyT11 = TyUnit then tyT12 (* For simplicity, any type can be "casted" to unit *)
               else raise (Type_error "parameter type mismatch")
           | _ -> raise (Type_error "arrow type expected"))
 
     (* T-Let *)
   | TmLetIn (x, t1, t2) ->
       let tyT1 = typeof ctx t1 in
-      let ctx' = addbinding ctx x tyT1 in
+      let ctx' = addbinding ctx x tyT1 t1 in
       typeof ctx' t2
 
     (* T-Fix *)
@@ -138,6 +190,8 @@ let rec string_of_term = function
       "true"
   | TmFalse ->
       "false"
+  | TmUnit ->
+      "()"
   | TmIf (t1,t2,t3) ->
       "if " ^ "(" ^ string_of_term t1 ^ ")" ^
       " then " ^ "(" ^ string_of_term t2 ^ ")" ^
@@ -154,6 +208,16 @@ let rec string_of_term = function
       "pred " ^ "(" ^ string_of_term t ^ ")"
   | TmIsZero t ->
       "iszero " ^ "(" ^ string_of_term t ^ ")"
+  | TmPrintNat t ->
+      "print_nat " ^ "(" ^ string_of_term t ^ ")"
+  | TmPrintString t ->
+      "print_string " ^ "(" ^ string_of_term t ^ ")"
+  | TmPrintNewline t ->
+      "print_newline " ^ "(" ^ string_of_term t ^ ")"
+  | TmReadNat t ->
+      "read_nat " ^ "(" ^ string_of_term t ^ ")"
+  | TmReadString t ->
+      "read_string " ^ "(" ^ string_of_term t ^ ")"
   | TmVar s ->
       s
   | TmAbs (s, tyS, t) ->
@@ -176,10 +240,13 @@ let rec lunion l1 l2 = match l1 with
   | h::t -> if List.mem h l2 then lunion t l2 else h::(lunion t l2)
 ;;
 
+(* TODO: this may need updating to be compatible with global context *)
 let rec free_vars tm = match tm with
     TmTrue ->
       []
   | TmFalse ->
+      []
+  | TmUnit ->
       []
   | TmIf (t1, t2, t3) ->
       lunion (lunion (free_vars t1) (free_vars t2)) (free_vars t3)
@@ -190,6 +257,16 @@ let rec free_vars tm = match tm with
   | TmPred t ->
       free_vars t
   | TmIsZero t ->
+      free_vars t
+  | TmPrintNat t ->
+      free_vars t
+  | TmPrintString t ->
+      free_vars t
+  | TmPrintNewline t ->
+      free_vars t
+  | TmReadNat t ->
+      free_vars t
+  | TmReadString t ->
       free_vars t
   | TmVar s ->
       [s]
@@ -203,6 +280,7 @@ let rec free_vars tm = match tm with
       free_vars t1
 ;;
 
+(* TODO: this may need updating to be compatible with global context *)
 let rec fresh_name x l =
   if not (List.mem x l) then x else fresh_name (x ^ "'") l
 ;;
@@ -212,6 +290,8 @@ let rec subst x s tm = match tm with
       TmTrue
   | TmFalse ->
       TmFalse
+  | TmUnit ->
+      TmUnit
   | TmIf (t1, t2, t3) ->
       TmIf (subst x s t1, subst x s t2, subst x s t3)
   | TmZero ->
@@ -222,6 +302,16 @@ let rec subst x s tm = match tm with
       TmPred (subst x s t)
   | TmIsZero t ->
       TmIsZero (subst x s t)
+  | TmPrintNat t ->
+      TmPrintNat (subst x s t)
+  | TmPrintString t ->
+      TmPrintString (subst x s t)
+  | TmPrintNewline t ->
+      TmPrintNewline (subst x s t)
+  | TmReadNat t ->
+      TmReadNat (subst x s t)
+  | TmReadString t ->
+      TmReadString (subst x s t)
   | TmVar y ->
       if y = x then s else tm
   | TmAbs (y, tyY, t) -> 
@@ -253,6 +343,7 @@ let rec isnumericval tm = match tm with
 let rec isval tm = match tm with
     TmTrue  -> true
   | TmFalse -> true
+  | TmUnit  -> true
   | TmAbs _ -> true
   | t when isnumericval t -> true
   | _ -> false
@@ -261,7 +352,8 @@ let rec isval tm = match tm with
 exception NoRuleApplies
 ;;
 
-let rec eval1 tm = match tm with
+(* Evaluation now requires context to use global definitions *)
+let rec eval1 ctx tm = match tm with
     (* E-IfTrue *)
     TmIf (TmTrue, t2, _) ->
       t2
@@ -272,12 +364,12 @@ let rec eval1 tm = match tm with
 
     (* E-If *)
   | TmIf (t1, t2, t3) ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmIf (t1', t2, t3)
 
     (* E-Succ *)
   | TmSucc t1 ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmSucc t1'
 
     (* E-PredZero *)
@@ -290,7 +382,7 @@ let rec eval1 tm = match tm with
 
     (* E-Pred *)
   | TmPred t1 ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmPred t1'
 
     (* E-IszeroZero *)
@@ -303,8 +395,31 @@ let rec eval1 tm = match tm with
 
     (* E-Iszero *)
   | TmIsZero t1 ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmIsZero t1'
+
+    (* E-PrintNat *)
+  | TmPrintNat t1 ->
+      print_string (string_of_term t1);
+      TmUnit
+
+    (* E-PrintString *)
+  | TmPrintString t1 ->
+    print_string (string_of_term t1);
+    TmUnit
+
+    (* E-PrintNewline *)
+  | TmPrintNewline t1 ->
+    print_string "\n";
+    TmUnit
+
+    (* E-ReadNat *)
+  | TmReadNat t1 ->
+    int_to_nat (read_int ()) (* TODO: Should this return 0 with invalid input? Currently crashes *)
+
+    (* E-ReadString *)
+  | TmReadString t1 ->
+    TmUnit (* TODO *)
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->
@@ -312,12 +427,12 @@ let rec eval1 tm = match tm with
 
     (* E-App2: evaluate argument before applying function *)
   | TmApp (v1, t2) when isval v1 ->
-      let t2' = eval1 t2 in
+      let t2' = eval1 ctx t2 in
       TmApp (v1, t2')
 
     (* E-App1: evaluate function before argument *)
   | TmApp (t1, t2) ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmApp (t1', t2)
 
     (* E-LetV *)
@@ -326,7 +441,7 @@ let rec eval1 tm = match tm with
 
     (* E-Let *)
   | TmLetIn(x, t1, t2) ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmLetIn (x, t1', t2) 
 
     (* E-FixBeta *)
@@ -334,19 +449,60 @@ let rec eval1 tm = match tm with
       subst x tm t2
 
     (* E-Fix *)
-  | TmFix(t1) ->
-      let t1' = eval1 t1 in
+  | TmFix (t1) ->
+      let t1' = eval1 ctx t1 in
       TmFix(t1')
+
+    (* Variables *)
+  | TmVar (y) ->
+      (try (match getbinding ctx y with (_, _, value) -> value) with
+      _ -> raise (Type_error ("no binding value for variable " ^ y)))
 
   | _ ->
       raise NoRuleApplies
 ;;
 
-let rec eval tm =
+(* Evaluation now requires context to use global definitions *)
+let rec eval ctx tm =
   try
-    let tm' = eval1 tm in
-    eval tm'
+    let tm' = eval1 ctx tm in
+    eval ctx tm'
   with
     NoRuleApplies -> tm
 ;;
 
+
+let rec substall ctx tm =
+  match ctx with (x, _, s) :: tl ->
+    subst x s tm
+  | _ -> tm
+;;
+
+(* Executes a command, returning the updated context *)
+let run_cmd ctx = function
+    CmdTerm (tm) -> 
+      let tyTm = typeof ctx tm in
+      print_endline (string_of_term (eval ctx tm) ^ " : " ^ string_of_ty tyTm);
+      ctx
+  | CmdBind (x, bind) ->
+      let bind = eval ctx bind in (* Evaluate whatever we can *)
+      let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
+      addbinding ctx x (typeof ctx bind) bind
+;;
+
+let check_cmd ctx = function
+    CmdTerm (tm) -> 
+      ignore (typeof ctx tm); ctx
+  | CmdBind (x, bind) ->
+      let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
+      addbinding ctx x (typeof ctx bind) bind
+;;
+
+let run_cmd_silent ctx = function
+    CmdTerm (tm) -> 
+      ignore (eval ctx tm); ctx
+  | CmdBind (x, bind) ->
+      let bind = eval ctx bind in (* Evaluate whatever we can *)
+      let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
+      addbinding ctx x (typeof ctx bind) bind
+;;

@@ -5,3 +5,4 @@ lexer.ml
 parser.mli
 parser.ml
 top
+run

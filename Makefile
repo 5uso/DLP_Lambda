@@ -1,6 +1,7 @@
 
-all: lambda parser lexer main
-	ocamlc -o top lambda.cmo parser.cmo lexer.cmo main.cmo
+all: lambda parser lexer main run
+	ocamlc -o top str.cma lambda.cmo parser.cmo lexer.cmo main.cmo
+	ocamlc -o run str.cma lambda.cmo parser.cmo lexer.cmo run.cmo
 
 lambda: lambda.ml lambda.mli
 	ocamlc -c lambda.mli lambda.ml
@@ -15,6 +16,9 @@ lexer: lexer.mll
 
 main: main.ml
 	ocamlc -c main.ml
+
+run: run.ml
+	ocamlc -c run.ml
 
 clean:
 	rm -f lexer.ml parser.mli parser.ml *.cmi *.cmo *~

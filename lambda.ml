@@ -485,6 +485,7 @@ let run_cmd ctx = function
       print_endline (string_of_term (eval ctx tm) ^ " : " ^ string_of_ty tyTm);
       ctx
   | CmdBind (x, bind) ->
+      let bind = eval ctx bind in (* Evaluate whatever we can *)
       let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
       addbinding ctx x (typeof ctx bind) bind
 ;;

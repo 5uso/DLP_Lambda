@@ -6,7 +6,7 @@
 - [x] (2.2) Contexto de definiciones globales
 - [ ] (2.8) Subtipado (1p)
 - [x] (2.9) Unit (0,75p)
-- [ ] (2.10) IO (0,75p)
+- [x] (2.10) IO (0,75p)
 ---
 ## Luca
 - [ ] (2.3) Strings

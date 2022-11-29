@@ -6,7 +6,7 @@
 %token LAMBDA
 %token TRUE
 %token FALSE
-%token UNIT_VAL
+%token UNIT_VAL          //Unit constant
 %token IF
 %token THEN
 %token ELSE
@@ -18,7 +18,7 @@
 %token IN
 %token BOOL
 %token NAT
-%token UNIT
+%token UNIT              //Unit type
 
 %token LPAREN
 %token RPAREN
@@ -26,6 +26,7 @@
 %token EQ
 %token COLON
 %token EOL               //Indicates the end of a line
+%token SCOLON            //Semicolon, to separate expressions
 %token ARROW
 %token EOF
 
@@ -54,6 +55,8 @@ term :
       { TmLetIn ($2, $4, $6) }
   | LETREC STRINGV COLON ty EQ term IN term
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
+  | term SCOLON term
+      { TmApp (TmAbs ("gaming", TyUnit, $3), $1) }
 
 appTerm :
     atomicTerm

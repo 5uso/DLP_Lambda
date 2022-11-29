@@ -30,6 +30,7 @@ rule token = parse
   | ':'         { COLON }
   | "->"        { ARROW }
   | ";;"        { EOL } (* Indicates the end of a line *)
+  | ";"         { SCOLON } (* Separates expressions *)
   | ['0'-'9']+  { INTV (int_of_string (Lexing.lexeme lexbuf)) }
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                 { STRINGV (Lexing.lexeme lexbuf) }

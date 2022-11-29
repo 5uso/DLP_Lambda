@@ -125,7 +125,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
             TyArr (tyT11, tyT12) ->
-              if tyT2 = tyT11 then tyT12
+              if tyT2 = tyT11 || tyT11 = TyUnit then tyT12 (* For simplicity, any type can be "casted" to unit *)
               else raise (Type_error "parameter type mismatch")
           | _ -> raise (Type_error "arrow type expected"))
 

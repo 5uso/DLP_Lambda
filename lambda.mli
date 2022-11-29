@@ -1,23 +1,25 @@
 
 type ty =
-    TyBool
-  | TyNat
-  | TyArr of ty * ty
+  TyBool
+| TyNat
+| TyArr of ty * ty
+| TyUnit (* Unit type *)
 ;;
 
 type term =
-    TmTrue
-  | TmFalse
-  | TmIf of term * term * term
-  | TmZero
-  | TmSucc of term
-  | TmPred of term
-  | TmIsZero of term
-  | TmVar of string
-  | TmAbs of string * ty * term
-  | TmApp of term * term
-  | TmLetIn of string * term * term
-  | TmFix of term (* Used for recursion *)
+  TmTrue
+| TmFalse
+| TmIf of term * term * term
+| TmZero
+| TmSucc of term
+| TmPred of term
+| TmIsZero of term
+| TmVar of string
+| TmAbs of string * ty * term
+| TmApp of term * term
+| TmLetIn of string * term * term
+| TmFix of term (* Used for recursion *)
+| TmUnit (* Unit term *)
 ;;
 
 (* Context now keeps track of values as well as types *)

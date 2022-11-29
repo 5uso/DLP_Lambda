@@ -10,6 +10,7 @@ rule token = parse
   | "L"         { LAMBDA }
   | "true"      { TRUE }
   | "false"     { FALSE }
+  | "()"        { UNIT_VAL } (* Unit value *)
   | "if"        { IF }
   | "then"      { THEN }
   | "else"      { ELSE }
@@ -21,6 +22,7 @@ rule token = parse
   | "in"        { IN }
   | "Bool"      { BOOL }
   | "Nat"       { NAT }
+  | "Unit"      { UNIT } (* Unit type *)
   | '('         { LPAREN }
   | ')'         { RPAREN }
   | '.'         { DOT }

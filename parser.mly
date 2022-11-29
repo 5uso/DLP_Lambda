@@ -6,6 +6,7 @@
 %token LAMBDA
 %token TRUE
 %token FALSE
+%token UNIT_VAL
 %token IF
 %token THEN
 %token ELSE
@@ -17,6 +18,7 @@
 %token IN
 %token BOOL
 %token NAT
+%token UNIT
 
 %token LPAREN
 %token RPAREN
@@ -72,6 +74,8 @@ atomicTerm :
       { TmTrue }
   | FALSE
       { TmFalse }
+  | UNIT_VAL
+      { TmUnit }
   | STRINGV
       { TmVar $1 }
   | INTV
@@ -93,4 +97,6 @@ atomicTy :
       { TyBool }
   | NAT
       { TyNat }
+  | UNIT
+      { TyUnit }
 

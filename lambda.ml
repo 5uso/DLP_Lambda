@@ -5,6 +5,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
+  | TyUnit (* Unit type *)
 ;;
 
 type term =
@@ -20,6 +21,7 @@ type term =
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmFix of term (* Used for recursion *)
+  | TmUnit (* Unit term *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -58,6 +60,8 @@ let rec string_of_ty ty = match ty with
       "Nat"
   | TyArr (ty1, ty2) ->
       "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
+  | TyUnit ->
+      "Unit"
 ;;
 
 exception Type_error of string
@@ -71,6 +75,10 @@ let rec typeof ctx tm = match tm with
     (* T-False *)
   | TmFalse ->
       TyBool
+
+    (* T-Unit *)
+  | TmUnit ->
+      TyUnit
 
     (* T-If *)
   | TmIf (t1, t2, t3) ->
@@ -145,6 +153,8 @@ let rec string_of_term = function
       "true"
   | TmFalse ->
       "false"
+  | TmUnit ->
+      "()"
   | TmIf (t1,t2,t3) ->
       "if " ^ "(" ^ string_of_term t1 ^ ")" ^
       " then " ^ "(" ^ string_of_term t2 ^ ")" ^
@@ -189,6 +199,8 @@ let rec free_vars tm = match tm with
       []
   | TmFalse ->
       []
+  | TmUnit ->
+      []
   | TmIf (t1, t2, t3) ->
       lunion (lunion (free_vars t1) (free_vars t2)) (free_vars t3)
   | TmZero ->
@@ -221,6 +233,8 @@ let rec subst x s tm = match tm with
       TmTrue
   | TmFalse ->
       TmFalse
+  | TmUnit ->
+      TmUnit
   | TmIf (t1, t2, t3) ->
       TmIf (subst x s t1, subst x s t2, subst x s t3)
   | TmZero ->

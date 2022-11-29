@@ -6,7 +6,6 @@ type ty =
   | TyNat
   | TyArr of ty * ty
   | TyUnit (* Unit type *)
-  | TyStr (* String type *)
 ;;
 
 type term =
@@ -17,12 +16,16 @@ type term =
   | TmSucc of term
   | TmPred of term
   | TmIsZero of term
+  | TmPrintNat of term
+  | TmPrintString of term
+  | TmPrintNewline of term
+  | TmReadNat of term
+  | TmReadString of term
   | TmVar of string
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmFix of term (* Used for recursion *)
-  | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
 ;;
 
@@ -70,14 +73,9 @@ let rec string_of_ty ty = match ty with
   | TyUnit ->
       "Unit"
   | TyArr (ty1, ty2) ->
-      (match ty1 with
-          TyArr (_, _) -> "(" ^ string_of_ty ty1 ^ ")"
-        | _ -> string_of_ty ty1
-      ) ^ " -> " ^
-      (match ty2 with
-          TyArr (_, _) -> "(" ^ string_of_ty ty2 ^ ")"
-        | _ -> string_of_ty ty2
-      )
+      "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
+  | TyUnit ->
+      "Unit"
 ;;
 
 exception Type_error of string
@@ -131,7 +129,7 @@ let rec typeof ctx tm = match tm with
 
     (* T-PrintString *)
   | TmPrintString t1 ->
-      if typeof ctx t1 = TyStr then TyUnit
+      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
       else raise (Type_error "argument of print_string is not a string")
 
     (* T-PrintNewline *)
@@ -672,7 +670,7 @@ let rec substall ctx tm =
 let run_cmd ctx = function
     CmdTerm (tm) -> 
       let tyTm = typeof ctx tm in
-      print_endline (string_of_term (eval ctx tm) ^ "\n: " ^ string_of_ty tyTm);
+      print_endline (string_of_term (eval ctx tm) ^ " : " ^ string_of_ty tyTm);
       ctx
   | CmdBind (x, bind) ->
       let bind = eval ctx bind in (* Evaluate whatever we can *)

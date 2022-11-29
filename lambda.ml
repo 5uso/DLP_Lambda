@@ -367,6 +367,12 @@ let rec eval ctx tm =
 ;;
 
 
+let rec substall ctx tm =
+  match ctx with (x, _, s) :: tl ->
+    subst x s tm
+  | _ -> tm
+;;
+
 (* Executes a command, returning the updated context *)
 let run_cmd ctx = function
     CmdTerm (tm) -> 
@@ -374,5 +380,6 @@ let run_cmd ctx = function
       print_endline (string_of_term (eval ctx tm) ^ " : " ^ string_of_ty tyTm);
       ctx
   | CmdBind (x, bind) ->
+      let bind = substall ctx bind in (* Replace with current context to ensure "functional-like" globals *)
       addbinding ctx x (typeof ctx bind) bind
 ;;

@@ -42,5 +42,6 @@ val string_of_term : term -> string;;
 exception NoRuleApplies;;
 val eval : context -> term -> term;;
 
+val substall : context -> term -> term;;
 (* Executes a command, returning the updated context *)
 val run_cmd : context -> cmd -> context;;

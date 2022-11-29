@@ -13,6 +13,11 @@
 %token SUCC
 %token PRED
 %token ISZERO
+%token PRINT_NAT
+%token PRINT_STRING
+%token PRINT_NEWLINE
+%token READ_NAT
+%token READ_STRING
 %token LET
 %token LETREC
 %token IN
@@ -67,6 +72,16 @@ appTerm :
       { TmPred $2 }
   | ISZERO atomicTerm
       { TmIsZero $2 }
+  | PRINT_NAT atomicTerm
+      { TmPrintNat $2 }
+  | PRINT_STRING atomicTerm
+      { TmPrintString $2 }
+  | PRINT_NEWLINE atomicTerm
+      { TmPrintNewline $2 }
+  | READ_NAT atomicTerm
+      { TmReadNat $2 }
+  | READ_STRING atomicTerm
+      { TmReadString $2 }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
 
@@ -82,10 +97,7 @@ atomicTerm :
   | STRINGV
       { TmVar $1 }
   | INTV
-      { let rec f = function
-            0 -> TmZero
-          | n -> TmSucc (f (n-1))
-        in f $1 }
+      { int_to_nat $1 }
 
 ty :
     atomicTy

@@ -16,6 +16,11 @@ type term =
   | TmSucc of term
   | TmPred of term
   | TmIsZero of term
+  | TmPrintNat of term
+  | TmPrintString of term
+  | TmPrintNewline of term
+  | TmReadNat of term
+  | TmReadString of term
   | TmVar of string
   | TmAbs of string * ty * term
   | TmApp of term * term
@@ -32,6 +37,13 @@ type context =
 type cmd = (* For statements that aren't treated as terms *)
     CmdTerm of term
   | CmdBind of string * term
+;;
+
+
+(* Int to Nat *)
+let rec int_to_nat = function
+    0 -> TmZero
+  | n -> TmSucc (int_to_nat (n - 1))
 ;;
 
 
@@ -108,6 +120,31 @@ let rec typeof ctx tm = match tm with
       if typeof ctx t1 = TyNat then TyBool
       else raise (Type_error "argument of iszero is not a number")
 
+    (* T-PrintNat *)
+  | TmPrintNat t1 ->
+      if typeof ctx t1 = TyNat then TyUnit
+      else raise (Type_error "argument of print_nat is not a number")
+
+    (* T-PrintString *)
+  | TmPrintString t1 ->
+      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      else raise (Type_error "argument of print_string is not a string")
+
+    (* T-PrintNewline *)
+  | TmPrintNewline t1 ->
+      if typeof ctx t1 = TyUnit then TyUnit
+      else raise (Type_error "argument of print_newline is not unit")
+
+    (* T-ReadNat *)
+  | TmReadNat t1 ->
+      if typeof ctx t1 = TyUnit then TyNat
+      else raise (Type_error "argument of read_nat is not unit")
+
+    (* T-ReadString *)
+  | TmReadString t1 ->
+      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      else raise (Type_error "argument of read_string is not unit")
+
     (* T-Var *)
   | TmVar x ->
       (try (match getbinding ctx x with (_, ty, _) -> ty) with
@@ -171,6 +208,16 @@ let rec string_of_term = function
       "pred " ^ "(" ^ string_of_term t ^ ")"
   | TmIsZero t ->
       "iszero " ^ "(" ^ string_of_term t ^ ")"
+  | TmPrintNat t ->
+      "print_nat " ^ "(" ^ string_of_term t ^ ")"
+  | TmPrintString t ->
+      "print_string " ^ "(" ^ string_of_term t ^ ")"
+  | TmPrintNewline t ->
+      "print_newline " ^ "(" ^ string_of_term t ^ ")"
+  | TmReadNat t ->
+      "read_nat " ^ "(" ^ string_of_term t ^ ")"
+  | TmReadString t ->
+      "read_string " ^ "(" ^ string_of_term t ^ ")"
   | TmVar s ->
       s
   | TmAbs (s, tyS, t) ->
@@ -211,6 +258,16 @@ let rec free_vars tm = match tm with
       free_vars t
   | TmIsZero t ->
       free_vars t
+  | TmPrintNat t ->
+      free_vars t
+  | TmPrintString t ->
+      free_vars t
+  | TmPrintNewline t ->
+      free_vars t
+  | TmReadNat t ->
+      free_vars t
+  | TmReadString t ->
+      free_vars t
   | TmVar s ->
       [s]
   | TmAbs (s, _, t) ->
@@ -245,6 +302,16 @@ let rec subst x s tm = match tm with
       TmPred (subst x s t)
   | TmIsZero t ->
       TmIsZero (subst x s t)
+  | TmPrintNat t ->
+      TmPrintNat (subst x s t)
+  | TmPrintString t ->
+      TmPrintString (subst x s t)
+  | TmPrintNewline t ->
+      TmPrintNewline (subst x s t)
+  | TmReadNat t ->
+      TmReadNat (subst x s t)
+  | TmReadString t ->
+      TmReadString (subst x s t)
   | TmVar y ->
       if y = x then s else tm
   | TmAbs (y, tyY, t) -> 
@@ -329,6 +396,29 @@ let rec eval1 ctx tm = match tm with
   | TmIsZero t1 ->
       let t1' = eval1 ctx t1 in
       TmIsZero t1'
+
+    (* E-PrintNat *)
+  | TmPrintNat t1 ->
+      print_string (string_of_term t1);
+      TmUnit
+
+    (* E-PrintString *)
+  | TmPrintString t1 ->
+    print_string (string_of_term t1);
+    TmUnit
+
+    (* E-PrintNewline *)
+  | TmPrintNewline t1 ->
+    print_string "\n";
+    TmUnit
+
+    (* E-ReadNat *)
+  | TmReadNat t1 ->
+    int_to_nat (read_int ()) (* TODO: Should this return 0 with invalid input? Currently crashes *)
+
+    (* E-ReadString *)
+  | TmReadString t1 ->
+    TmUnit (* TODO *)
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->

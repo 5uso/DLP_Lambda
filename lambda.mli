@@ -14,6 +14,11 @@ type term =
 | TmSucc of term
 | TmPred of term
 | TmIsZero of term
+| TmPrintNat of term
+| TmPrintString of term
+| TmPrintNewline of term
+| TmReadNat of term
+| TmReadString of term
 | TmVar of string
 | TmAbs of string * ty * term
 | TmApp of term * term
@@ -31,6 +36,9 @@ type cmd = (* For statements that aren't treated as terms *)
     CmdTerm of term
   | CmdBind of string * term
 ;;
+
+(* Moved int to nat conversion here for convenience *)
+val int_to_nat : int -> term;;
 
 val emptyctx : context;;
 val addbinding : context -> string -> ty -> term -> context;;

@@ -7,10 +7,6 @@ type ty =
   | TyArr of ty * ty
 ;;
 
-type context =
-  (string * ty) list
-;;
-
 type term =
     TmTrue
   | TmFalse
@@ -26,6 +22,16 @@ type term =
   | TmFix of term (* Used for recursion *)
 ;;
 
+(* Context now keeps track of values as well as types *)
+type context =
+  (string * ty * term) list
+;;
+
+type cmd = (* For statements that aren't treated as terms *)
+    CmdTerm of term
+  | CmdBind of string * term
+;;
+
 
 (* CONTEXT MANAGEMENT *)
 
@@ -33,12 +39,13 @@ let emptyctx =
   []
 ;;
 
-let addbinding ctx x bind =
-  (x, bind) :: ctx
+let addbinding ctx x ty value =
+  (x, ty, value) :: ctx
 ;;
 
 let getbinding ctx x =
-  List.assoc x ctx
+  let f a b = match b with (c, _, _) -> c = a
+  in List.find (f x) ctx
 ;;
 
 
@@ -95,12 +102,12 @@ let rec typeof ctx tm = match tm with
 
     (* T-Var *)
   | TmVar x ->
-      (try getbinding ctx x with
+      (try (match getbinding ctx x with (_, ty, _) -> ty) with
        _ -> raise (Type_error ("no binding type for variable " ^ x)))
 
     (* T-Abs *)
   | TmAbs (x, tyT1, t2) ->
-      let ctx' = addbinding ctx x tyT1 in
+      let ctx' = addbinding ctx x tyT1 t2 in
       let tyT2 = typeof ctx' t2 in
       TyArr (tyT1, tyT2)
 
@@ -117,7 +124,7 @@ let rec typeof ctx tm = match tm with
     (* T-Let *)
   | TmLetIn (x, t1, t2) ->
       let tyT1 = typeof ctx t1 in
-      let ctx' = addbinding ctx x tyT1 in
+      let ctx' = addbinding ctx x tyT1 t1 in
       typeof ctx' t2
 
     (* T-Fix *)
@@ -176,6 +183,7 @@ let rec lunion l1 l2 = match l1 with
   | h::t -> if List.mem h l2 then lunion t l2 else h::(lunion t l2)
 ;;
 
+(* TODO: this may need updating to be compatible with global context *)
 let rec free_vars tm = match tm with
     TmTrue ->
       []
@@ -203,6 +211,7 @@ let rec free_vars tm = match tm with
       free_vars t1
 ;;
 
+(* TODO: this may need updating to be compatible with global context *)
 let rec fresh_name x l =
   if not (List.mem x l) then x else fresh_name (x ^ "'") l
 ;;
@@ -261,7 +270,8 @@ let rec isval tm = match tm with
 exception NoRuleApplies
 ;;
 
-let rec eval1 tm = match tm with
+(* Evaluation now requires context to use global definitions *)
+let rec eval1 ctx tm = match tm with
     (* E-IfTrue *)
     TmIf (TmTrue, t2, _) ->
       t2
@@ -272,12 +282,12 @@ let rec eval1 tm = match tm with
 
     (* E-If *)
   | TmIf (t1, t2, t3) ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmIf (t1', t2, t3)
 
     (* E-Succ *)
   | TmSucc t1 ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmSucc t1'
 
     (* E-PredZero *)
@@ -290,7 +300,7 @@ let rec eval1 tm = match tm with
 
     (* E-Pred *)
   | TmPred t1 ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmPred t1'
 
     (* E-IszeroZero *)
@@ -303,7 +313,7 @@ let rec eval1 tm = match tm with
 
     (* E-Iszero *)
   | TmIsZero t1 ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmIsZero t1'
 
     (* E-AppAbs *)
@@ -312,12 +322,12 @@ let rec eval1 tm = match tm with
 
     (* E-App2: evaluate argument before applying function *)
   | TmApp (v1, t2) when isval v1 ->
-      let t2' = eval1 t2 in
+      let t2' = eval1 ctx t2 in
       TmApp (v1, t2')
 
     (* E-App1: evaluate function before argument *)
   | TmApp (t1, t2) ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmApp (t1', t2)
 
     (* E-LetV *)
@@ -326,7 +336,7 @@ let rec eval1 tm = match tm with
 
     (* E-Let *)
   | TmLetIn(x, t1, t2) ->
-      let t1' = eval1 t1 in
+      let t1' = eval1 ctx t1 in
       TmLetIn (x, t1', t2) 
 
     (* E-FixBeta *)
@@ -334,19 +344,35 @@ let rec eval1 tm = match tm with
       subst x tm t2
 
     (* E-Fix *)
-  | TmFix(t1) ->
-      let t1' = eval1 t1 in
+  | TmFix (t1) ->
+      let t1' = eval1 ctx t1 in
       TmFix(t1')
+
+    (* Variables *)
+  | TmVar (y) ->
+      (try (match getbinding ctx y with (_, _, value) -> value) with
+      _ -> raise (Type_error ("no binding value for variable " ^ y)))
 
   | _ ->
       raise NoRuleApplies
 ;;
 
-let rec eval tm =
+(* Evaluation now requires context to use global definitions *)
+let rec eval ctx tm =
   try
-    let tm' = eval1 tm in
-    eval tm'
+    let tm' = eval1 ctx tm in
+    eval ctx tm'
   with
     NoRuleApplies -> tm
 ;;
 
+
+(* Executes a command, returning the updated context *)
+let run_cmd ctx = function
+    CmdTerm (tm) -> 
+      let tyTm = typeof ctx tm in
+      print_endline (string_of_term (eval ctx tm) ^ " : " ^ string_of_ty tyTm);
+      ctx
+  | CmdBind (x, bind) ->
+      addbinding ctx x (typeof ctx bind) bind
+;;

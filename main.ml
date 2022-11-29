@@ -23,9 +23,9 @@ let top_level_loop () =
     print_string ">> ";
     flush stdout;
     try
-      let tm = s token (from_string (read_multiline ())) in
-      let tyTm = typeof ctx tm in
-      print_endline (string_of_term (eval tm) ^ " : " ^ string_of_ty tyTm);
+      (* Get and run a command *)
+      let c = s token (from_string (read_multiline ())) in
+      let ctx = run_cmd ctx c in
       loop ctx
     with
        Lexical_error ->

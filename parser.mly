@@ -23,7 +23,7 @@
 %token DOT
 %token EQ
 %token COLON
-%token EOL // Indicates the end of a line
+%token EOL               //Indicates the end of a line
 %token ARROW
 %token EOF
 
@@ -31,13 +31,15 @@
 %token <string> STRINGV
 
 %start s
-%type <Lambda.term> s
+%type <Lambda.cmd> s     //Root type is command, terms go inside CmdTerm
 
 %%
 
 s :
     term EOL EOF
-      { $1 }
+      { CmdTerm ($1) }
+  | STRINGV EQ term EOL EOF
+      { CmdBind ($1, $3) }
 
 term :
     appTerm

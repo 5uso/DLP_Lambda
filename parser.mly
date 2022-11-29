@@ -23,6 +23,7 @@
 %token DOT
 %token EQ
 %token COLON
+%token EOL // Indicates the end of a line
 %token ARROW
 %token EOF
 
@@ -35,7 +36,7 @@
 %%
 
 s :
-    term EOF
+    term EOL EOF
       { $1 }
 
 term :

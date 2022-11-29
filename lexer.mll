@@ -5,7 +5,7 @@
 }
 
 rule token = parse
-    [' ' '\t']  { token lexbuf }
+    [' ' '\t' '\n']  { token lexbuf }
   | "lambda"    { LAMBDA }
   | "L"         { LAMBDA }
   | "true"      { TRUE }
@@ -27,6 +27,7 @@ rule token = parse
   | '='         { EQ }
   | ':'         { COLON }
   | "->"        { ARROW }
+  | ";;"        { EOL } (* Indicates the end of a line *)
   | ['0'-'9']+  { INTV (int_of_string (Lexing.lexeme lexbuf)) }
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                 { STRINGV (Lexing.lexeme lexbuf) }

@@ -343,6 +343,7 @@ let rec isnumericval tm = match tm with
 let rec isval tm = match tm with
     TmTrue  -> true
   | TmFalse -> true
+  | TmUnit  -> true
   | TmAbs _ -> true
   | t when isnumericval t -> true
   | _ -> false

@@ -78,8 +78,6 @@ let rec string_of_ty ty = match ty with
           TyArr (_, _) -> "(" ^ string_of_ty ty2 ^ ")"
         | _ -> string_of_ty ty2
       )
-  | TyStr ->
-      "String"
 ;;
 
 exception Type_error of string
@@ -200,32 +198,22 @@ let term_precedence = function
   | TmFalse
   | TmZero
   | TmVar _ -> 0
-  | TmSucc t ->
-      let rec f n t' = match t' with
-          TmZero -> 0
-        | TmSucc s -> f (n + 1) s
-        | _ -> 1
-      in f 1 t
+  | TmSucc _
   | TmPred _
   | TmIsZero _
   | TmPrintNat _
   | TmPrintString _
   | TmPrintNewline _
   | TmReadNat _
-  | TmStr _
   | TmReadString _ -> 1
   | TmIf (_, _, _) -> 2
   | TmAbs (_, _, _) -> 3
   | TmFix _ -> 4
-  | TmApp (_, _) -> 1
-  | TmLetIn (_, _, _) -> 5
+  | TmApp (_, _) -> 5
+  | TmLetIn (_, _, _) -> 6
 ;;
 
 let string_of_term term =
-  let rec clean_newlines s =
-    let clean = Str.global_replace (Str.regexp "\n *\n") "\n" s in
-    if clean = s then clean else clean_newlines clean
-  in
   let rec internal indent outer term =
     let inner = term_precedence term in
     let result =
@@ -238,8 +226,6 @@ let string_of_term term =
             "false"
         | TmUnit ->
             "()"
-        | TmStr s -> 
-            s
         | TmZero ->
             "0"
         | TmVar s ->
@@ -267,9 +253,9 @@ let string_of_term term =
         | TmIf (t1,t2,t3) ->
             "if" ^
               internal true inner t1 ^
-            "then" ^
+            "\nthen" ^
               internal true inner t2 ^
-            "else" ^
+            "\nelse" ^
               internal true inner t3
         | TmAbs (s, tyS, t) ->
             "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^
@@ -277,20 +263,18 @@ let string_of_term term =
         | TmFix (t1) ->
             "fix " ^ internal false inner t1
         | TmApp (t1, t2) ->
-            internal false (inner + 1) t1 ^ " " ^ internal false inner t2
+            internal false inner t1 ^ " " ^ internal false inner t2
         | TmLetIn (s, t1, t2) ->
             "let " ^ s ^ " = " ^
               internal true inner t1 ^
-            "in" ^
+            "\nin" ^
               internal true inner t2
-      )
-    in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
-       (if indent then "\n" else "") ^
-       (if inner >= outer then (if indent then "  )" else ")") else "")
-  in clean_newlines (internal false 9999 term)
+      ) ^ (if inner >= outer then ")" else "")
+    in if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result
+  in internal false 9999 term
 ;;
 
-let rec string_of_term = function
+let rec string_of_term_old = function
     TmTrue ->
       "true"
   | TmFalse ->

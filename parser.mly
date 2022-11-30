@@ -41,6 +41,9 @@
 %start s
 %type <Lambda.cmd> s     //Root type is command, terms go inside CmdTerm
 
+%nonassoc SCOLON
+%nonassoc BEFORE_SCOLON
+
 %%
 
 s :
@@ -53,13 +56,13 @@ term :
     appTerm
       { $1 }
   | IF term THEN term ELSE term
-      { TmIf ($2, $4, $6) }
+      { TmIf ($2, $4, $6) }                            %prec BEFORE_SCOLON;
   | LAMBDA STRINGV COLON ty DOT term
-      { TmAbs ($2, $4, $6) }
+      { TmAbs ($2, $4, $6) }                           %prec BEFORE_SCOLON;
   | LET STRINGV EQ term IN term
-      { TmLetIn ($2, $4, $6) }
+      { TmLetIn ($2, $4, $6) }                         %prec BEFORE_SCOLON;
   | LETREC STRINGV COLON ty EQ term IN term
-      { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
+      { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) } %prec BEFORE_SCOLON;
   | term SCOLON term
       { TmApp (TmAbs (fresh_name "x" (free_vars $3), TyUnit, $3), $1) }
 

@@ -75,6 +75,15 @@ let rec string_of_ty ty = match ty with
       "Nat"
   | TyUnit ->
       "Unit"
+  | TyArr (ty1, ty2) ->
+      (match ty1 with
+          TyArr (_, _) -> "(" ^ string_of_ty ty1 ^ ")"
+        | _ -> string_of_ty ty1
+      ) ^ " -> " ^
+      (match ty2 with
+          TyArr (_, _) -> "(" ^ string_of_ty ty2 ^ ")"
+        | _ -> string_of_ty ty2
+      )
   | TyStr ->
       "String"
 ;;
@@ -194,7 +203,89 @@ let rec typeof ctx tm = match tm with
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
-let rec string_of_term = function
+let term_precedence = function
+    TmUnit
+  | TmTrue
+  | TmFalse
+  | TmZero
+  | TmVar _ -> 0
+  | TmSucc _
+  | TmPred _
+  | TmIsZero _
+  | TmPrintNat _
+  | TmPrintString _
+  | TmPrintNewline _
+  | TmReadNat _
+  | TmReadString _ -> 1
+  | TmIf (_, _, _) -> 2
+  | TmAbs (_, _, _) -> 3
+  | TmFix _ -> 4
+  | TmApp (_, _) -> 5
+  | TmLetIn (_, _, _) -> 6
+;;
+
+let string_of_term term =
+  let rec internal indent outer term =
+    let inner = term_precedence term in
+    let result =
+      (if indent then "\n" else "") ^
+      (if inner >= outer then "(" else "") ^
+      (match term with
+          TmTrue ->
+            "true"
+        | TmFalse ->
+            "false"
+        | TmUnit ->
+            "()"
+        | TmZero ->
+            "0"
+        | TmVar s ->
+            s
+        | TmSucc t ->
+            let rec f n t' = match t' with
+                TmZero -> string_of_int n
+              | TmSucc s -> f (n + 1) s
+              | _ -> "succ " ^ internal false inner t
+            in f 1 t
+        | TmPred t ->
+            "pred " ^ internal false inner t
+        | TmIsZero t ->
+            "iszero " ^ internal false inner t
+            | TmPrintNat t ->
+            "print_nat " ^ internal false inner t
+        | TmPrintString t ->
+            "print_string " ^ internal false inner t
+        | TmPrintNewline t ->
+            "print_newline " ^ internal false inner t
+        | TmReadNat t ->
+            "read_nat " ^ internal false inner t
+        | TmReadString t ->
+            "read_string " ^ internal false inner t
+        | TmIf (t1,t2,t3) ->
+            "if" ^
+              internal true inner t1 ^
+            "\nthen" ^
+              internal true inner t2 ^
+            "\nelse" ^
+              internal true inner t3
+        | TmAbs (s, tyS, t) ->
+            "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^
+              internal true inner t
+        | TmFix (t1) ->
+            "fix " ^ internal false inner t1
+        | TmApp (t1, t2) ->
+            internal false inner t1 ^ " " ^ internal false inner t2
+        | TmLetIn (s, t1, t2) ->
+            "let " ^ s ^ " = " ^
+              internal true inner t1 ^
+            "\nin" ^
+              internal true inner t2
+      ) ^ (if inner >= outer then ")" else "")
+    in if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result
+  in internal false 9999 term
+;;
+
+let rec string_of_term_old = function
     TmTrue ->
       "true"
   | TmFalse ->

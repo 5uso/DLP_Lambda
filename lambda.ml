@@ -213,11 +213,15 @@ let term_precedence = function
   | TmIf (_, _, _) -> 2
   | TmAbs (_, _, _) -> 3
   | TmFix _ -> 4
-  | TmApp (_, _) -> 5
-  | TmLetIn (_, _, _) -> 6
+  | TmApp (_, _) -> 1
+  | TmLetIn (_, _, _) -> 5
 ;;
 
 let string_of_term term =
+  let rec clean_newlines s =
+    let clean = Str.global_replace (Str.regexp "\n *\n") "\n" s in
+    if clean = s then clean else clean_newlines clean
+  in
   let rec internal indent outer term =
     let inner = term_precedence term in
     let result =
@@ -257,9 +261,9 @@ let string_of_term term =
         | TmIf (t1,t2,t3) ->
             "if" ^
               internal true inner t1 ^
-            "\nthen" ^
+            "then" ^
               internal true inner t2 ^
-            "\nelse" ^
+            "else" ^
               internal true inner t3
         | TmAbs (s, tyS, t) ->
             "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^
@@ -271,11 +275,13 @@ let string_of_term term =
         | TmLetIn (s, t1, t2) ->
             "let " ^ s ^ " = " ^
               internal true inner t1 ^
-            "\nin" ^
+            "in" ^
               internal true inner t2
-      ) ^ (if inner >= outer then ")" else "")
-    in if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result
-  in internal false 9999 term
+      )
+    in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
+       (if indent then "\n" else "") ^
+       (if inner >= outer then (if indent then "  )" else ")") else "")
+  in clean_newlines (internal false 9999 term)
 ;;
 
 let rec string_of_term_old = function

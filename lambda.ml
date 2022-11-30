@@ -83,6 +83,19 @@ let rec string_of_ty ty = match ty with
       )
 ;;
 
+let rec is_subtype super ty = match super with
+    TyBool ->
+      ty = TyBool
+  | TyNat ->
+      ty = TyNat
+  | TyUnit ->
+      true (* TODO: Accept anything as unit, is this ok? *)
+  | TyArr (super1, super2) ->
+      match ty with
+          TyArr (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
+        | _ -> false
+;;
+
 exception Type_error of string
 ;;
 
@@ -101,9 +114,9 @@ let rec typeof ctx tm = match tm with
 
     (* T-If *)
   | TmIf (t1, t2, t3) ->
-      if typeof ctx t1 = TyBool then
+      if is_subtype TyBool (typeof ctx t1) then
         let tyT2 = typeof ctx t2 in
-        if typeof ctx t3 = tyT2 then tyT2
+        if is_subtype tyT2 (typeof ctx t3) then tyT2
         else raise (Type_error "arms of conditional have different types")
       else
         raise (Type_error "guard of conditional not a boolean")
@@ -114,42 +127,42 @@ let rec typeof ctx tm = match tm with
 
     (* T-Succ *)
   | TmSucc t1 ->
-      if typeof ctx t1 = TyNat then TyNat
+      if is_subtype TyNat (typeof ctx t1) then TyNat
       else raise (Type_error "argument of succ is not a number")
 
     (* T-Pred *)
   | TmPred t1 ->
-      if typeof ctx t1 = TyNat then TyNat
+      if is_subtype TyNat (typeof ctx t1) then TyNat
       else raise (Type_error "argument of pred is not a number")
 
     (* T-Iszero *)
   | TmIsZero t1 ->
-      if typeof ctx t1 = TyNat then TyBool
+      if is_subtype TyNat (typeof ctx t1) then TyBool
       else raise (Type_error "argument of iszero is not a number")
 
     (* T-PrintNat *)
   | TmPrintNat t1 ->
-      if typeof ctx t1 = TyNat then TyUnit
+      if is_subtype TyNat (typeof ctx t1) then TyUnit
       else raise (Type_error "argument of print_nat is not a number")
 
     (* T-PrintString *)
   | TmPrintString t1 ->
-      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      if is_subtype TyUnit (typeof ctx t1) then TyUnit (* TODO *)
       else raise (Type_error "argument of print_string is not a string")
 
     (* T-PrintNewline *)
   | TmPrintNewline t1 ->
-      if typeof ctx t1 = TyUnit then TyUnit
+      if is_subtype TyUnit (typeof ctx t1) then TyUnit
       else raise (Type_error "argument of print_newline is not unit")
 
     (* T-ReadNat *)
   | TmReadNat t1 ->
-      if typeof ctx t1 = TyUnit then TyNat
+      if is_subtype TyUnit (typeof ctx t1) then TyNat
       else raise (Type_error "argument of read_nat is not unit")
 
     (* T-ReadString *)
   | TmReadString t1 ->
-      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      if is_subtype TyUnit (typeof ctx t1) then TyUnit (* TODO *)
       else raise (Type_error "argument of read_string is not unit")
 
     (* T-Var *)
@@ -169,7 +182,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
             TyArr (tyT11, tyT12) ->
-              if tyT2 = tyT11 || tyT11 = TyUnit then tyT12 (* For simplicity, any type can be "casted" to unit *)
+              if is_subtype tyT11 tyT2 then tyT12
               else raise (Type_error "parameter type mismatch")
           | _ -> raise (Type_error "arrow type expected"))
 
@@ -184,7 +197,7 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       (match tyT1 with
           TyArr (tyT11, tyT12) ->
-            if tyT11 = tyT12 then tyT12
+            if is_subtype tyT12 tyT11 then tyT12 (* TODO: Check that this works *)
             else raise (Type_error "result of body not compatible with domain")
         | _ -> raise (Type_error "arrow type expected"))
 ;;

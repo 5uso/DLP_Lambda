@@ -41,6 +41,7 @@
 %start s
 %type <Lambda.cmd> s     //Root type is command, terms go inside CmdTerm
 
+//Precedence, to avoid shift/reduce conflicts
 %nonassoc SCOLON
 %nonassoc BEFORE_SCOLON
 

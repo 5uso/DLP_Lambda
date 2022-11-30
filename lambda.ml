@@ -276,7 +276,7 @@ let string_of_term term =
         | TmFix (t1) ->
             "fix " ^ internal false inner t1
         | TmApp (t1, t2) ->
-            internal false inner t1 ^ " " ^ internal false inner t2
+            internal false (inner + 1) t1 ^ " " ^ internal false inner t2
         | TmLetIn (s, t1, t2) ->
             "let " ^ s ^ " = " ^
               internal true inner t1 ^

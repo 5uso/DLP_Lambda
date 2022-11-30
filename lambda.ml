@@ -202,7 +202,12 @@ let term_precedence = function
   | TmFalse
   | TmZero
   | TmVar _ -> 0
-  | TmSucc _
+  | TmSucc t ->
+      let rec f n t' = match t' with
+          TmZero -> 0
+        | TmSucc s -> f (n + 1) s
+        | _ -> 1
+      in f 1 t
   | TmPred _
   | TmIsZero _
   | TmPrintNat _

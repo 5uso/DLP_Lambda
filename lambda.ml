@@ -468,26 +468,31 @@ let rec eval1 ctx tm = match tm with
 
     (* E-PrintNat *)
   | TmPrintNat t1 ->
+      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
       print_string (string_of_term t1);
       TmUnit
 
     (* E-PrintString *)
   | TmPrintString t1 ->
-    print_string (string_of_term t1);
-    TmUnit
+      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      print_string (string_of_term t1);
+      TmUnit
 
     (* E-PrintNewline *)
   | TmPrintNewline t1 ->
-    print_string "\n";
-    TmUnit
+      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      print_string "\n";
+      TmUnit
 
     (* E-ReadNat *)
   | TmReadNat t1 ->
-    int_to_nat (read_int ()) (* TODO: Should this return 0 with invalid input? Currently crashes *)
+      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      int_to_nat (read_int ()) (* TODO: Should this return 0 with invalid input? Currently crashes *)
 
     (* E-ReadString *)
   | TmReadString t1 ->
-    TmUnit (* TODO *)
+      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      TmUnit (* TODO *)
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->

@@ -274,51 +274,6 @@ let string_of_term term =
   in internal false 9999 term
 ;;
 
-let rec string_of_term_old = function
-    TmTrue ->
-      "true"
-  | TmFalse ->
-      "false"
-  | TmUnit ->
-      "()"
-  | TmIf (t1,t2,t3) ->
-      "if " ^ "(" ^ string_of_term t1 ^ ")" ^
-      " then " ^ "(" ^ string_of_term t2 ^ ")" ^
-      " else " ^ "(" ^ string_of_term t3 ^ ")"
-  | TmZero ->
-      "0"
-  | TmSucc t ->
-     let rec f n t' = match t' with
-          TmZero -> string_of_int n
-        | TmSucc s -> f (n+1) s
-        | _ -> "succ " ^ "(" ^ string_of_term t ^ ")"
-      in f 1 t
-  | TmPred t ->
-      "pred " ^ "(" ^ string_of_term t ^ ")"
-  | TmIsZero t ->
-      "iszero " ^ "(" ^ string_of_term t ^ ")"
-  | TmPrintNat t ->
-      "print_nat " ^ "(" ^ string_of_term t ^ ")"
-  | TmPrintString t ->
-      "print_string " ^ "(" ^ string_of_term t ^ ")"
-  | TmPrintNewline t ->
-      "print_newline " ^ "(" ^ string_of_term t ^ ")"
-  | TmReadNat t ->
-      "read_nat " ^ "(" ^ string_of_term t ^ ")"
-  | TmReadString t ->
-      "read_string " ^ "(" ^ string_of_term t ^ ")"
-  | TmVar s ->
-      s
-  | TmAbs (s, tyS, t) ->
-      "(lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term t ^ ")"
-  | TmApp (t1, t2) ->
-      "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
-  | TmLetIn (s, t1, t2) ->
-      "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
-  | TmFix (t1) ->
-      "(fix " ^ string_of_term t1 ^ ")"
-;;
-
 let rec ldif l1 l2 = match l1 with
     [] -> []
   | h::t -> if List.mem h l2 then ldif t l2 else h::(ldif t l2)

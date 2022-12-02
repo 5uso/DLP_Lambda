@@ -19,6 +19,11 @@ type term =
   | TmSucc of term
   | TmPred of term
   | TmIsZero of term
+  | TmPrintNat of term
+  | TmPrintString of term
+  | TmPrintNewline of term
+  | TmReadNat of term
+  | TmReadString of term
   | TmVar of string
   | TmAbs of string * ty * term
   | TmApp of term * term

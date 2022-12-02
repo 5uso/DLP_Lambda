@@ -5,6 +5,7 @@ type ty =
 | TyArr of ty * ty
 | TyUnit (* Unit type *)
 | TyStr (* String type *)
+| TyPair of ty * ty (* Pair type *)
 ;;
 
 type term =
@@ -27,6 +28,9 @@ type term =
 | TmFix of term (* Used for recursion *)
 | TmStr of string (* String term *)
 | TmUnit (* Unit term *)
+| TmPair of term * term (* Pair term *)
+| TmFst of term (* First component of the pair *)
+| TmSnd of term (* Second component of the pair *)
 ;;
 
 (* Context now keeps track of values as well as types *)

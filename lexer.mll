@@ -37,6 +37,11 @@ rule token = parse
   | ";;"            { EOL } (* Indicates the end of a line *)
   | ";"             { SCOLON } (* Separates expressions *)
   | "\""            { QUOTE } (* Indicates the limits of a string *)
+  | ","             { COMMA }
+  | "{"             { LCURLY }
+  | "}"             { RCURLY }
+  | ".1"            { FIRST }
+  | ".2"            { SECOND }
   | ['0'-'9']+      { INTV (int_of_string (Lexing.lexeme lexbuf)) }
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                     { STRINGV (Lexing.lexeme lexbuf) }

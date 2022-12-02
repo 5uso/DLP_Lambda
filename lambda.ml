@@ -7,6 +7,7 @@ type ty =
   | TyArr of ty * ty
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
+  | TyPair of ty * ty (* Pair type *)
 ;;
 
 type term =
@@ -29,6 +30,9 @@ type term =
   | TmFix of term (* Used for recursion *)
   | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
+  | TmPair of term * term (* Pair term *)
+  | TmFst of term (* First component of the pair *)
+  | TmSnd of term (* Second component of the pair *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -85,6 +89,8 @@ let rec string_of_ty ty = match ty with
       )
   | TyStr ->
       "String"
+  | TyPair (ty1, ty2) ->
+      "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
 ;;
 
 exception Type_error of string
@@ -194,6 +200,25 @@ let rec typeof ctx tm = match tm with
   
   | TmStr _ ->
       TyStr
+  
+  | TmPair (t1,t2) ->
+    let tyT1 = typeof ctx t1 in
+    let tyT2 = typeof ctx t2 in
+    TyPair (tyT1,tyT2)
+
+  | TmFst t ->
+    let t' = typeof ctx t in
+    (match t' with
+      TyPair (tyT1,tyT2) -> 
+        tyT1
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+
+  | TmSnd t ->
+      let t' = typeof ctx t in
+      (match t' with
+        TyPair (tyT1,tyT2) -> 
+          tyT2
+        | _ -> raise (Type_error "Can only get second element of a pair"))
 ;;
 
 
@@ -218,7 +243,10 @@ let term_precedence = function
   | TmPrintNewline _
   | TmStr _
   | TmReadNat _
+  | TmFst _
+  | TmSnd _
   | TmReadString _ -> 1
+  | TmPair (_ ,_)
   | TmIf (_, _, _) -> 2
   | TmAbs (_, _, _) -> 3
   | TmFix _ -> 4
@@ -288,6 +316,18 @@ let string_of_term term =
               internal true inner t1 ^
             "in" ^
               internal true inner t2
+        | TmPair (t1, t2) ->
+          "{" ^ internal false inner t1 ^ "," ^ internal false inner t2 ^ "}"
+        | TmFst t ->
+          (match t with
+            TmPair (t1, t2) -> 
+              internal false inner t1
+            | _ -> raise (Type_error "Can only get first element of a pair"))
+        | TmSnd t ->
+            (match t with
+              TmPair (t1, t2) -> 
+                internal false inner t2
+              | _ -> raise (Type_error "Can only get second element of a pair"))
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -345,6 +385,18 @@ let rec free_vars tm = match tm with
       free_vars t1
   | TmStr s ->
       [s]
+  | TmPair (t1,t2) -> 
+    lunion (free_vars t1) (free_vars t2)
+  | TmFst t ->
+    (match t with
+      TmPair (t1,t2) ->
+        free_vars t2
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+  | TmSnd t ->
+    (match t with
+      TmPair (t1,t2) ->
+        free_vars t2
+      | _ -> raise (Type_error "Can only get second element of a pair"))
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -401,6 +453,18 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t1)
   | TmStr s ->
       TmStr s
+  | TmPair (t1,t2) ->
+    TmPair (subst x s t1, subst x s t2)
+  | TmFst t ->
+    (match t with
+      TmPair (t1,t2) ->
+        TmFst (subst x s t1)
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+  | TmSnd t ->
+    (match t with
+      TmPair (t1,t2) ->
+        TmSnd (subst x s t2)
+      | _ -> raise (Type_error "Can only get second element of a pair"))
 ;;
 
 let rec isnumericval tm = match tm with
@@ -414,6 +478,7 @@ let rec isval tm = match tm with
   | TmFalse -> true
   | TmUnit  -> true
   | TmAbs _ -> true
+  | TmPair _ -> true
   | t when isnumericval t -> true
   | TmStr _ -> true
   | _ -> false
@@ -528,6 +593,27 @@ let rec eval1 ctx tm = match tm with
       (try (match getbinding ctx y with (_, _, value) -> value) with
       _ -> raise (Type_error ("no binding value for variable " ^ y)))
 
+  | TmPair (t1, t2) ->
+    let t1' = eval1 ctx t1 in
+    let t2' = eval1 ctx t2 in
+    TmPair (t1',t2')
+      
+  | TmFst t ->
+    let t' = eval1 ctx t in
+    (match t' with
+      TmPair (t1, t2) -> 
+        let t1' = eval1 ctx t1 in
+        t1'
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+
+  | TmSnd t ->
+    let t' = eval1 ctx t in
+    (match t' with
+      TmPair (t1, t2) -> 
+        let t2' = eval1 ctx t2 in
+        t2'
+      | _ -> raise (Type_error "Can only get second element of a pair"))
+  
   | _ ->
       raise NoRuleApplies
 ;;

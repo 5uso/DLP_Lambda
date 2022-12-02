@@ -35,6 +35,12 @@
 %token QUOTE             //Quote, to indicate a string
 %token ARROW
 %token EOF
+%token COMMA
+
+%token LCURLY           // pairs are create with curly braces
+%token RCURLY
+%token FIRST
+%token SECOND
 
 %token <int> INTV
 %token <string> STRINGV
@@ -105,6 +111,16 @@ atomicTerm :
       { int_to_nat $1 }
   | QUOTE STRINGV QUOTE
       { TmStr $2 }
+  | pairTerm
+      { $1 }
+  | atomicTerm FIRST
+      { TmFst $1 }
+  | atomicTerm SECOND
+      { TmSnd $1 }
+
+pairTerm :
+  | LCURLY term COMMA term RCURLY 
+      { TmPair ($2, $4) }
 
 ty :
     atomicTy
@@ -123,4 +139,6 @@ atomicTy :
       { TyUnit }
   | STRINGV
       { TyStr }
+  | LCURLY ty COMMA ty RCURLY
+      { TyPair ($2,$4) }
 

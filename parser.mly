@@ -32,6 +32,7 @@
 %token COLON
 %token EOL               //Indicates the end of a line
 %token SCOLON            //Semicolon, to separate expressions
+%token QUOTE             //Quote, to indicate a string
 %token ARROW
 %token EOF
 
@@ -102,6 +103,8 @@ atomicTerm :
       { TmVar $1 }
   | INTV
       { int_to_nat $1 }
+  | QUOTE STRINGV QUOTE
+      { TmStr $2 }
 
 ty :
     atomicTy
@@ -118,4 +121,6 @@ atomicTy :
       { TyNat }
   | UNIT
       { TyUnit }
+  | STRINGV
+      { TyStr }
 

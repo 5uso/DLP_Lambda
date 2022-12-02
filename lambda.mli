@@ -4,6 +4,7 @@ type ty =
 | TyNat
 | TyArr of ty * ty
 | TyUnit (* Unit type *)
+| TyStr (* String type *)
 ;;
 
 type term =
@@ -24,6 +25,7 @@ type term =
 | TmApp of term * term
 | TmLetIn of string * term * term
 | TmFix of term (* Used for recursion *)
+| TmStr of string (* String term *)
 | TmUnit (* Unit term *)
 ;;
 

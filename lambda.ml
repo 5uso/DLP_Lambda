@@ -212,13 +212,13 @@ let term_precedence = function
   | TmPrintString _
   | TmPrintNewline _
   | TmReadNat _
+  | TmStr _
   | TmReadString _ -> 1
   | TmIf (_, _, _) -> 2
   | TmAbs (_, _, _) -> 3
   | TmFix _ -> 4
   | TmApp (_, _) -> 1
   | TmLetIn (_, _, _) -> 5
-  | TmStr _
 ;;
 
 let string_of_term term =
@@ -238,6 +238,8 @@ let string_of_term term =
             "false"
         | TmUnit ->
             "()"
+        | TmStr s -> 
+            s
         | TmZero ->
             "0"
         | TmVar s ->

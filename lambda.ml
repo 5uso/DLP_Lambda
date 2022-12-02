@@ -5,10 +5,8 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
-;;
-
-type context =
-  (string * ty) list
+  | TyUnit (* Unit type *)
+  | TyStr (* String type *)
 ;;
 
 type term =
@@ -196,9 +194,6 @@ let rec typeof ctx tm = match tm with
   
   | TmStr _ ->
       TyStr
-  
-  | TmStr _ ->
-      TyStr
 ;;
 
 
@@ -210,22 +205,32 @@ let term_precedence = function
   | TmFalse
   | TmZero
   | TmVar _ -> 0
-  | TmSucc _
+  | TmSucc t ->
+      let rec f n t' = match t' with
+          TmZero -> 0
+        | TmSucc s -> f (n + 1) s
+        | _ -> 1
+      in f 1 t
   | TmPred _
   | TmIsZero _
   | TmPrintNat _
   | TmPrintString _
   | TmPrintNewline _
+  | TmStr _
   | TmReadNat _
   | TmReadString _ -> 1
   | TmIf (_, _, _) -> 2
   | TmAbs (_, _, _) -> 3
   | TmFix _ -> 4
-  | TmApp (_, _) -> 5
-  | TmLetIn (_, _, _) -> 6
+  | TmApp (_, _) -> 1
+  | TmLetIn (_, _, _) -> 5
 ;;
 
 let string_of_term term =
+  let rec clean_newlines s =
+    let clean = Str.global_replace (Str.regexp "\n *\n") "\n" s in
+    if clean = s then clean else clean_newlines clean
+  in
   let rec internal indent outer term =
     let inner = term_precedence term in
     let result =
@@ -241,6 +246,8 @@ let string_of_term term =
         | TmZero ->
             "0"
         | TmVar s ->
+            s
+        | TmStr s ->
             s
         | TmSucc t ->
             let rec f n t' = match t' with
@@ -265,9 +272,9 @@ let string_of_term term =
         | TmIf (t1,t2,t3) ->
             "if" ^
               internal true inner t1 ^
-            "\nthen" ^
+            "then" ^
               internal true inner t2 ^
-            "\nelse" ^
+            "else" ^
               internal true inner t3
         | TmAbs (s, tyS, t) ->
             "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^
@@ -275,62 +282,17 @@ let string_of_term term =
         | TmFix (t1) ->
             "fix " ^ internal false inner t1
         | TmApp (t1, t2) ->
-            internal false inner t1 ^ " " ^ internal false inner t2
+            internal false (inner + 1) t1 ^ " " ^ internal false inner t2
         | TmLetIn (s, t1, t2) ->
             "let " ^ s ^ " = " ^
               internal true inner t1 ^
-            "\nin" ^
+            "in" ^
               internal true inner t2
-      ) ^ (if inner >= outer then ")" else "")
-    in if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result
-  in internal false 9999 term
-;;
-
-let rec string_of_term_old = function
-    TmTrue ->
-      "true"
-  | TmFalse ->
-      "false"
-  | TmUnit ->
-      "()"
-  | TmIf (t1,t2,t3) ->
-      "if " ^ "(" ^ string_of_term t1 ^ ")" ^
-      " then " ^ "(" ^ string_of_term t2 ^ ")" ^
-      " else " ^ "(" ^ string_of_term t3 ^ ")"
-  | TmZero ->
-      "0"
-  | TmSucc t ->
-     let rec f n t' = match t' with
-          TmZero -> string_of_int n
-        | TmSucc s -> f (n+1) s
-        | _ -> "succ " ^ "(" ^ string_of_term t ^ ")"
-      in f 1 t
-  | TmPred t ->
-      "pred " ^ "(" ^ string_of_term t ^ ")"
-  | TmIsZero t ->
-      "iszero " ^ "(" ^ string_of_term t ^ ")"
-  | TmPrintNat t ->
-      "print_nat " ^ "(" ^ string_of_term t ^ ")"
-  | TmPrintString t ->
-      "print_string " ^ "(" ^ string_of_term t ^ ")"
-  | TmPrintNewline t ->
-      "print_newline " ^ "(" ^ string_of_term t ^ ")"
-  | TmReadNat t ->
-      "read_nat " ^ "(" ^ string_of_term t ^ ")"
-  | TmReadString t ->
-      "read_string " ^ "(" ^ string_of_term t ^ ")"
-  | TmVar s ->
-      s
-  | TmAbs (s, tyS, t) ->
-      "(lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term t ^ ")"
-  | TmApp (t1, t2) ->
-      "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
-  | TmLetIn (s, t1, t2) ->
-      "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
-  | TmFix (t1) ->
-      "(fix " ^ string_of_term t1 ^ ")"
-  | TmStr s ->
-      s
+      )
+    in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
+       (if indent then "\n" else "") ^
+       (if inner >= outer then (if indent then "  )" else ")") else "")
+  in clean_newlines (internal false 9999 term)
 ;;
 
 let rec ldif l1 l2 = match l1 with
@@ -381,8 +343,6 @@ let rec free_vars tm = match tm with
       lunion (ldif (free_vars t2) [s]) (free_vars t1)
   | TmFix (t1) ->
       free_vars t1
-  | TmStr s ->
-      [s]
   | TmStr s ->
       [s]
 ;;
@@ -441,8 +401,6 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t1)
   | TmStr s ->
       TmStr s
-  | TmStr s ->
-      TmStr s
 ;;
 
 let rec isnumericval tm = match tm with
@@ -457,7 +415,6 @@ let rec isval tm = match tm with
   | TmUnit  -> true
   | TmAbs _ -> true
   | t when isnumericval t -> true
-  | TmStr _ -> true
   | TmStr _ -> true
   | _ -> false
 ;;
@@ -595,7 +552,7 @@ let rec substall ctx tm =
 let run_cmd ctx = function
     CmdTerm (tm) -> 
       let tyTm = typeof ctx tm in
-      print_endline (string_of_term (eval ctx tm) ^ " : " ^ string_of_ty tyTm);
+      print_endline (string_of_term (eval ctx tm) ^ "\n: " ^ string_of_ty tyTm);
       ctx
   | CmdBind (x, bind) ->
       let bind = eval ctx bind in (* Evaluate whatever we can *)

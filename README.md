@@ -2,7 +2,7 @@
 
 ## Suso
 - [x] (1.1) Expresiones multilínea
-- [ ] (1.2) Pretty-printer (1.5p)
+- [x] (1.2) Pretty-printer (1.5p)
 - [x] (2.2) Contexto de definiciones globales
 - [ ] (2.8) Subtipado (1p)
 - [x] (2.9) Unit (0,75p)

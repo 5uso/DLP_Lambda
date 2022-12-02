@@ -6,6 +6,7 @@ type ty =
   | TyNat
   | TyArr of ty * ty
   | TyUnit (* Unit type *)
+  | TyStr (* String type *)
 ;;
 
 type term =
@@ -16,16 +17,12 @@ type term =
   | TmSucc of term
   | TmPred of term
   | TmIsZero of term
-  | TmPrintNat of term
-  | TmPrintString of term
-  | TmPrintNewline of term
-  | TmReadNat of term
-  | TmReadString of term
   | TmVar of string
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmFix of term (* Used for recursion *)
+  | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
 ;;
 
@@ -73,9 +70,16 @@ let rec string_of_ty ty = match ty with
   | TyUnit ->
       "Unit"
   | TyArr (ty1, ty2) ->
-      "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
-  | TyUnit ->
-      "Unit"
+      (match ty1 with
+          TyArr (_, _) -> "(" ^ string_of_ty ty1 ^ ")"
+        | _ -> string_of_ty ty1
+      ) ^ " -> " ^
+      (match ty2 with
+          TyArr (_, _) -> "(" ^ string_of_ty ty2 ^ ")"
+        | _ -> string_of_ty ty2
+      )
+  | TyStr ->
+      "String"
 ;;
 
 exception Type_error of string
@@ -129,7 +133,7 @@ let rec typeof ctx tm = match tm with
 
     (* T-PrintString *)
   | TmPrintString t1 ->
-      if typeof ctx t1 = TyUnit then TyUnit (* TODO *)
+      if typeof ctx t1 = TyStr then TyUnit
       else raise (Type_error "argument of print_string is not a string")
 
     (* T-PrintNewline *)
@@ -185,6 +189,9 @@ let rec typeof ctx tm = match tm with
   
   | TmStr _ ->
       TyStr
+  
+  | TmStr _ ->
+      TyStr
 ;;
 
 
@@ -202,6 +209,7 @@ let term_precedence = function
   | TmPrintNat _
   | TmPrintString _
   | TmPrintNewline _
+  | TmStr _
   | TmReadNat _
   | TmReadString _ -> 1
   | TmIf (_, _, _) -> 2
@@ -231,6 +239,8 @@ let string_of_term term =
         | TmZero ->
             "0"
         | TmVar s ->
+            s
+        | TmStr s ->
             s
         | TmSucc t ->
             let rec f n t' = match t' with
@@ -328,6 +338,8 @@ let rec free_vars tm = match tm with
       free_vars t1
   | TmStr s ->
       [s]
+  | TmStr s ->
+      [s]
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -384,6 +396,8 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t1)
   | TmStr s ->
       TmStr s
+  | TmStr s ->
+      TmStr s
 ;;
 
 let rec isnumericval tm = match tm with
@@ -398,6 +412,7 @@ let rec isval tm = match tm with
   | TmUnit  -> true
   | TmAbs _ -> true
   | t when isnumericval t -> true
+  | TmStr _ -> true
   | TmStr _ -> true
   | _ -> false
 ;;

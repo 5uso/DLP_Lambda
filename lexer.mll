@@ -18,7 +18,7 @@ rule token = parse
   | "pred"          { PRED }
   | "iszero"        { ISZERO }
   | "print_nat"     { PRINT_NAT }
-  | "print_string"  { PRINT_NAT }
+  | "print_string"  { PRINT_STRING }
   | "print_newline" { PRINT_NEWLINE }
   | "read_nat"      { READ_NAT }
   | "read_string"   { READ_STRING }
@@ -36,6 +36,7 @@ rule token = parse
   | "->"            { ARROW }
   | ";;"            { EOL } (* Indicates the end of a line *)
   | ";"             { SCOLON } (* Separates expressions *)
+  | "\""            { QUOTE } (* Indicates the limits of a string *)
   | ['0'-'9']+      { INTV (int_of_string (Lexing.lexeme lexbuf)) }
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                     { STRINGV (Lexing.lexeme lexbuf) }

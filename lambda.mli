@@ -6,6 +6,8 @@ type ty =
 | TyUnit (* Unit type *)
 | TyStr (* String type *)
 | TyPair of ty * ty (* Pair type *)
+| TyList of ty list (* List type *)
+| TyEmpty (* Empty type *)
 ;;
 
 type term =
@@ -31,6 +33,8 @@ type term =
 | TmPair of term * term (* Pair term *)
 | TmFst of term (* First component of the pair *)
 | TmSnd of term (* Second component of the pair *)
+| TmList of term list (* Empty list *)
+| TmEmpty (* Null term *)
 ;;
 
 (* Context now keeps track of values as well as types *)

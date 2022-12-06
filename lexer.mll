@@ -28,6 +28,10 @@ rule token = parse
   | "Bool"          { BOOL }
   | "Nat"           { NAT }
   | "Unit"          { UNIT } (* Unit type *)
+  | "List"          { LIST } (* List type *)
+  | "head"          { HEAD } (* List head *)
+  | "tail"          { TAIL } (* List tail *)
+  | "isempty"       { ISEMPTY } (* List is empty *)
   | '('             { LPAREN }
   | ')'             { RPAREN }
   | '.'             { DOT }
@@ -40,6 +44,8 @@ rule token = parse
   | ","             { COMMA }
   | "{"             { LCURLY }
   | "}"             { RCURLY }
+  | "["             { LBRACKET }
+  | "]"             { RBRACKET }
   | ".1"            { FIRST }
   | ".2"            { SECOND }
   | ['0'-'9']+      { INTV (int_of_string (Lexing.lexeme lexbuf)) }

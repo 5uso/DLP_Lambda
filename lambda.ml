@@ -8,6 +8,8 @@ type ty =
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
   | TyPair of ty * ty (* Pair type *)
+  | TyList of ty list (* List type *)
+  | TyEmpty (* Empty type *)
 ;;
 
 type term =
@@ -33,6 +35,8 @@ type term =
   | TmPair of term * term (* Pair term *)
   | TmFst of term (* First component of the pair *)
   | TmSnd of term (* Second component of the pair *)
+  | TmList of term list (* List term *)
+  | TmEmpty (* Empty term (for lists) *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -91,6 +95,10 @@ let rec string_of_ty ty = match ty with
       "String"
   | TyPair (ty1, ty2) ->
       "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
+  | TyList t -> 
+      "List of " ^ string_of_ty (List.hd t)
+  | TyEmpty ->
+      "Empty"
 ;;
 
 exception Type_error of string
@@ -108,6 +116,9 @@ let rec typeof ctx tm = match tm with
     (* T-Unit *)
   | TmUnit ->
       TyUnit
+
+  | TmEmpty ->
+      TyEmpty
 
     (* T-If *)
   | TmIf (t1, t2, t3) ->
@@ -219,6 +230,15 @@ let rec typeof ctx tm = match tm with
         TyPair (tyT1,tyT2) -> 
           tyT2
         | _ -> raise (Type_error "Can only get second element of a pair"))
+
+  | TmList t ->
+    match t with
+      [] -> TyList [TyEmpty]
+    | h::tail -> TyList [(List.fold_left (fun acc x -> 
+      if typeof ctx x = typeof ctx h 
+        then acc
+    else raise (Type_error "List elements must be of the same type")) (typeof ctx h) tail)]
+
 ;;
 
 
@@ -229,11 +249,17 @@ let term_precedence = function
   | TmTrue
   | TmFalse
   | TmZero
+  | TmEmpty
   | TmVar _ -> 0
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
         | TmSucc s -> f (n + 1) s
+        | _ -> 1
+      in f 1 t
+  | TmList t -> 
+      let rec f n t' = match t' with
+          [] -> 0
         | _ -> 1
       in f 1 t
   | TmPred _
@@ -328,6 +354,10 @@ let string_of_term term =
               TmPair (t1, t2) -> 
                 internal false inner t2
               | _ -> raise (Type_error "Can only get second element of a pair"))
+        | TmList t ->
+            "[" ^ String.concat "," (List.map (internal false inner) t) ^ "]"
+        | TmEmpty -> 
+            ""
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -397,6 +427,13 @@ let rec free_vars tm = match tm with
       TmPair (t1,t2) ->
         free_vars t2
       | _ -> raise (Type_error "Can only get second element of a pair"))
+  | TmList t ->
+    let rec aux accum t2 =
+      match t with
+        h::tail -> aux ((free_vars h) @ accum) tail
+        | _ -> (List.rev accum)
+    in aux [] t
+  | TmEmpty -> []
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -465,6 +502,14 @@ let rec subst x s tm = match tm with
       TmPair (t1,t2) ->
         TmSnd (subst x s t2)
       | _ -> raise (Type_error "Can only get second element of a pair"))
+  | TmList t ->
+    let rec aux accum t =
+      match t with
+        h::tail -> aux ((subst x s h) :: accum) tail
+        | _ -> TmList (List.rev accum)
+    in aux [] t
+  | TmEmpty ->
+    TmEmpty
 ;;
 
 let rec isnumericval tm = match tm with
@@ -479,6 +524,7 @@ let rec isval tm = match tm with
   | TmUnit  -> true
   | TmAbs _ -> true
   | TmPair _ -> true
+  | TmList _ -> true
   | t when isnumericval t -> true
   | TmStr _ -> true
   | _ -> false
@@ -614,6 +660,13 @@ let rec eval1 ctx tm = match tm with
         t2'
       | _ -> raise (Type_error "Can only get second element of a pair"))
   
+  | TmList t ->
+    let rec aux accum t2 =
+      match t with
+        h::tail -> aux ((eval1 ctx h) :: accum) tail
+        | _ -> TmList (List.rev accum)
+    in aux [] t
+
   | _ ->
       raise NoRuleApplies
 ;;

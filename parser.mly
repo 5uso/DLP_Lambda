@@ -42,6 +42,13 @@
 %token FIRST
 %token SECOND
 
+%token LIST
+%token LBRACKET
+%token RBRACKET
+%token HEAD
+%token TAIL
+%token ISEMPTY
+
 %token <int> INTV
 %token <string> STRINGV
 
@@ -93,6 +100,10 @@ appTerm :
       { TmReadNat $2 }
   | READ_STRING atomicTerm
       { TmReadString $2 }
+  | atomicTerm FIRST
+      { TmFst $1 }
+  | atomicTerm SECOND
+      { TmSnd $1 }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
 
@@ -111,16 +122,22 @@ atomicTerm :
       { int_to_nat $1 }
   | QUOTE STRINGV QUOTE
       { TmStr $2 }
-  | pairTerm
-      { $1 }
-  | atomicTerm FIRST
-      { TmFst $1 }
-  | atomicTerm SECOND
-      { TmSnd $1 }
+  | LCURLY pairTerm RCURLY
+      { $2 }
+  | LIST LBRACKET listTerm RBRACKET
+      { TmList $3 }
+  | LIST LBRACKET RBRACKET
+      { TmList [TmEmpty] }
 
 pairTerm :
-  | LCURLY term COMMA term RCURLY 
-      { TmPair ($2, $4) }
+  | term COMMA term
+      { TmPair ($1, $3) }
+
+listTerm :
+    | term COMMA listTerm
+        { $1::$3 }
+    | term
+        { [$1] }
 
 ty :
     atomicTy
@@ -141,4 +158,11 @@ atomicTy :
       { TyStr }
   | LCURLY ty COMMA ty RCURLY
       { TyPair ($2,$4) }
+  | LIST LBRACKET listTy RBRACKET
+      { TyList $3 }
 
+listTy :
+  | ty 
+      { [$1] }
+  | ty COMMA listTy
+      { $1::$3 }

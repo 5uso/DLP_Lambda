@@ -5,6 +5,7 @@ open Lexing;;
 open Lambda;;
 open Parser;;
 open Lexer;;
+open List;;
 
 let read_multiline () = 
   let is_end s1 =

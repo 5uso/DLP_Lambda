@@ -7,6 +7,9 @@ type ty =
   | TyArr of ty * ty
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
+  | TyPair of ty * ty (* Pair type *)
+  | TyList of ty list (* List type *)
+  | TyEmpty (* Empty type *)
 ;;
 
 type term =
@@ -29,6 +32,11 @@ type term =
   | TmFix of term (* Used for recursion *)
   | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
+  | TmPair of term * term (* Pair term *)
+  | TmFst of term (* First component of the pair *)
+  | TmSnd of term (* Second component of the pair *)
+  | TmList of term list (* List term *)
+  | TmEmpty (* Empty term (for lists) *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -85,6 +93,12 @@ let rec string_of_ty ty = match ty with
       )
   | TyStr ->
       "String"
+  | TyPair (ty1, ty2) ->
+      "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
+  | TyList t -> 
+      "List of " ^ string_of_ty (List.hd t)
+  | TyEmpty ->
+      "Empty"
 ;;
 
 let rec is_subtype super ty = match super with
@@ -115,6 +129,9 @@ let rec typeof ctx tm = match tm with
     (* T-Unit *)
   | TmUnit ->
       TyUnit
+
+  | TmEmpty ->
+      TyEmpty
 
     (* T-If *)
   | TmIf (t1, t2, t3) ->
@@ -151,7 +168,7 @@ let rec typeof ctx tm = match tm with
 
     (* T-PrintString *)
   | TmPrintString t1 ->
-      if is_subtype TyStr (typeof ctx t1) then TyUnit (* TODO *)
+      if is_subtype TyStr (typeof ctx t1) then TyUnit
       else raise (Type_error "argument of print_string is not a string")
 
     (* T-PrintNewline *)
@@ -207,6 +224,34 @@ let rec typeof ctx tm = match tm with
   
   | TmStr _ ->
       TyStr
+  
+  | TmPair (t1,t2) ->
+    let tyT1 = typeof ctx t1 in
+    let tyT2 = typeof ctx t2 in
+    TyPair (tyT1,tyT2)
+
+  | TmFst t ->
+    let t' = typeof ctx t in
+    (match t' with
+      TyPair (tyT1,tyT2) -> 
+        tyT1
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+
+  | TmSnd t ->
+      let t' = typeof ctx t in
+      (match t' with
+        TyPair (tyT1,tyT2) -> 
+          tyT2
+        | _ -> raise (Type_error "Can only get second element of a pair"))
+
+  | TmList t ->
+    match t with
+      [] -> TyList [TyEmpty]
+    | h::tail -> TyList [(List.fold_left (fun acc x -> 
+      if typeof ctx x = typeof ctx h 
+        then acc
+    else raise (Type_error "List elements must be of the same type")) (typeof ctx h) tail)]
+
 ;;
 
 
@@ -217,11 +262,17 @@ let term_precedence = function
   | TmTrue
   | TmFalse
   | TmZero
+  | TmEmpty
   | TmVar _ -> 0
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
         | TmSucc s -> f (n + 1) s
+        | _ -> 1
+      in f 1 t
+  | TmList t -> 
+      let rec f n t' = match t' with
+          [] -> 0
         | _ -> 1
       in f 1 t
   | TmPred _
@@ -231,7 +282,10 @@ let term_precedence = function
   | TmPrintNewline _
   | TmStr _
   | TmReadNat _
+  | TmFst _
+  | TmSnd _
   | TmReadString _ -> 1
+  | TmPair (_ ,_)
   | TmIf (_, _, _) -> 2
   | TmAbs (_, _, _) -> 3
   | TmFix _ -> 4
@@ -301,6 +355,22 @@ let string_of_term term =
               internal true inner t1 ^
             "in" ^
               internal true inner t2
+        | TmPair (t1, t2) ->
+          "{" ^ internal false inner t1 ^ "," ^ internal false inner t2 ^ "}"
+        | TmFst t ->
+          (match t with
+            TmPair (t1, t2) -> 
+              internal false inner t1
+            | _ -> raise (Type_error "Can only get first element of a pair"))
+        | TmSnd t ->
+            (match t with
+              TmPair (t1, t2) -> 
+                internal false inner t2
+              | _ -> raise (Type_error "Can only get second element of a pair"))
+        | TmList t ->
+            "[" ^ String.concat "," (List.map (internal false inner) t) ^ "]"
+        | TmEmpty -> 
+            ""
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -358,6 +428,25 @@ let rec free_vars tm = match tm with
       free_vars t1
   | TmStr s ->
       [s]
+  | TmPair (t1,t2) -> 
+    lunion (free_vars t1) (free_vars t2)
+  | TmFst t ->
+    (match t with
+      TmPair (t1,t2) ->
+        free_vars t2
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+  | TmSnd t ->
+    (match t with
+      TmPair (t1,t2) ->
+        free_vars t2
+      | _ -> raise (Type_error "Can only get second element of a pair"))
+  | TmList t ->
+    let rec aux accum t2 =
+      match t with
+        h::tail -> aux ((free_vars h) @ accum) tail
+        | _ -> (List.rev accum)
+    in aux [] t
+  | TmEmpty -> []
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -414,6 +503,26 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t1)
   | TmStr s ->
       TmStr s
+  | TmPair (t1,t2) ->
+    TmPair (subst x s t1, subst x s t2)
+  | TmFst t ->
+    (match t with
+      TmPair (t1,t2) ->
+        TmFst (subst x s t1)
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+  | TmSnd t ->
+    (match t with
+      TmPair (t1,t2) ->
+        TmSnd (subst x s t2)
+      | _ -> raise (Type_error "Can only get second element of a pair"))
+  | TmList t ->
+    let rec aux accum t =
+      match t with
+        h::tail -> aux ((subst x s h) :: accum) tail
+        | _ -> TmList (List.rev accum)
+    in aux [] t
+  | TmEmpty ->
+    TmEmpty
 ;;
 
 let rec isnumericval tm = match tm with
@@ -427,6 +536,8 @@ let rec isval tm = match tm with
   | TmFalse -> true
   | TmUnit  -> true
   | TmAbs _ -> true
+  | TmPair _ -> true
+  | TmList _ -> true
   | t when isnumericval t -> true
   | TmStr _ -> true
   | _ -> false
@@ -545,6 +656,34 @@ let rec eval1 ctx tm = match tm with
   | TmVar (y) ->
       (try (match getbinding ctx y with (_, _, value) -> value) with
       _ -> raise (Type_error ("no binding value for variable " ^ y)))
+
+  | TmPair (t1, t2) ->
+    let t1' = eval1 ctx t1 in
+    let t2' = eval1 ctx t2 in
+    TmPair (t1',t2')
+      
+  | TmFst t ->
+    let t' = eval1 ctx t in
+    (match t' with
+      TmPair (t1, t2) -> 
+        let t1' = eval1 ctx t1 in
+        t1'
+      | _ -> raise (Type_error "Can only get first element of a pair"))
+
+  | TmSnd t ->
+    let t' = eval1 ctx t in
+    (match t' with
+      TmPair (t1, t2) -> 
+        let t2' = eval1 ctx t2 in
+        t2'
+      | _ -> raise (Type_error "Can only get second element of a pair"))
+  
+  | TmList t ->
+    let rec aux accum t2 =
+      match t with
+        h::tail -> aux ((eval1 ctx h) :: accum) tail
+        | _ -> TmList (List.rev accum)
+    in aux [] t
 
   | _ ->
       raise NoRuleApplies

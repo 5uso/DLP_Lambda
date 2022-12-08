@@ -28,6 +28,7 @@ rule token = parse
   | "Bool"          { BOOL }
   | "Nat"           { NAT }
   | "Unit"          { UNIT } (* Unit type *)
+  | "String"        { STRING } (* String type *)
   | "List"          { LIST } (* List type *)
   | "head"          { HEAD } (* List head *)
   | "tail"          { TAIL } (* List tail *)

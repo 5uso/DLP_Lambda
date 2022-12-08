@@ -24,6 +24,7 @@
 %token BOOL
 %token NAT
 %token UNIT              //Unit type
+%token STRING            //String type
 
 %token LPAREN
 %token RPAREN
@@ -154,7 +155,7 @@ atomicTy :
       { TyNat }
   | UNIT
       { TyUnit }
-  | STRINGV
+  | STRING
       { TyStr }
   | LCURLY ty COMMA ty RCURLY
       { TyPair ($2,$4) }

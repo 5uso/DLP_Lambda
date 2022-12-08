@@ -185,7 +185,7 @@ let rec typeof ctx tm = match tm with
 
     (* T-ReadString *)
   | TmReadString t1 ->
-      if is_subtype TyUnit (typeof ctx t1) then TyUnit (* TODO *)
+      if is_subtype TyUnit (typeof ctx t1) then TyStr
       else raise (Type_error "argument of read_string is not unit")
 
     (* T-Var *)
@@ -579,7 +579,7 @@ let rec eval1 ctx tm = match tm with
     (* E-ReadString *)
   | TmReadString t1 ->
       (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
-      TmUnit (* TODO *)
+      TmStr (read_line ())
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->

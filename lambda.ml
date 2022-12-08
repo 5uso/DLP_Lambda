@@ -91,7 +91,7 @@ let rec string_of_ty ty = match ty with
   | TyStr ->
       "String"
   | TyPair (ty1, ty2) ->
-      "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
+      "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "}"
   | TyList t -> 
       "[" ^ string_of_ty t ^ "]"
 ;;

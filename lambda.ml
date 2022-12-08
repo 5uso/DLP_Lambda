@@ -93,7 +93,7 @@ let rec string_of_ty ty = match ty with
   | TyPair (ty1, ty2) ->
       "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
   | TyList t -> 
-      "List of " ^ string_of_ty t
+      "[" ^ string_of_ty t ^ "]"
 ;;
 
 let rec is_subtype super ty = match super with

@@ -2,6 +2,11 @@
 {
   open Parser;;
   exception Lexical_error;; 
+
+  let strip_string_quotes str =
+    match String.length str with
+      0 | 1 | 2 -> ""
+    | len -> String.sub str 1 (len - 2)
 }
 
 rule token = parse
@@ -41,7 +46,6 @@ rule token = parse
   | "->"            { ARROW }
   | ";;"            { EOL } (* Indicates the end of a line *)
   | ";"             { SCOLON } (* Separates expressions *)
-  | "\""            { QUOTE } (* Indicates the limits of a string *)
   | ","             { COMMA }
   | "{"             { LCURLY }
   | "}"             { RCURLY }
@@ -50,6 +54,7 @@ rule token = parse
   | ".1"            { FIRST }
   | ".2"            { SECOND }
   | ['0'-'9']+      { INTV (int_of_string (Lexing.lexeme lexbuf)) }
+  | '"'[^'"']*'"'   { STRING_VAL (strip_string_quotes (Lexing.lexeme lexbuf)) } (* String value, delimited by quotes *)
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                     { STRINGV (Lexing.lexeme lexbuf) }
   | eof             { EOF }

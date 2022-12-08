@@ -33,7 +33,6 @@
 %token COLON
 %token EOL               //Indicates the end of a line
 %token SCOLON            //Semicolon, to separate expressions
-%token QUOTE             //Quote, to indicate a string
 %token ARROW
 %token EOF
 %token COMMA
@@ -51,6 +50,7 @@
 %token ISEMPTY
 
 %token <int> INTV
+%token <string> STRING_VAL //String value delimited by quotes
 %token <string> STRINGV
 
 %start s
@@ -121,8 +121,8 @@ atomicTerm :
       { TmVar $1 }
   | INTV
       { int_to_nat $1 }
-  | QUOTE STRINGV QUOTE
-      { TmStr $2 }
+  | STRING_VAL
+      { TmStr $1 }
   | LCURLY pairTerm RCURLY
       { $2 }
   | LIST LBRACKET listTerm RBRACKET

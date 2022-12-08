@@ -8,7 +8,7 @@ type ty =
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
   | TyPair of ty * ty (* Pair type *)
-  | TyList of ty list (* List type *)
+  | TyList of ty (* List type *)
   | TyEmpty (* Empty type *)
 ;;
 
@@ -95,7 +95,7 @@ let rec string_of_ty ty = match ty with
   | TyPair (ty1, ty2) ->
       "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
   | TyList t -> 
-      "List of " ^ string_of_ty (List.hd t)
+      "List of " ^ string_of_ty t
   | TyEmpty ->
       "Empty"
 ;;
@@ -237,13 +237,14 @@ let rec typeof ctx tm = match tm with
       (match t' with TyPair (tyT1,tyT2) -> (if n = 1 then tyT1 else tyT2)
       | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
 
+    (* T-List *)
   | TmList t ->
       match t with
-        [] -> TyList [TyEmpty]
-      | h::tail -> TyList [(List.fold_left (fun acc x -> 
+        [] -> TyList TyEmpty
+      | h :: tail -> TyList (List.fold_left (fun acc x -> 
         if typeof ctx x = typeof ctx h 
           then acc
-      else raise (Type_error "List elements must be of the same type")) (typeof ctx h) tail)]
+      else raise (Type_error "List elements must be of the same type")) (typeof ctx h) tail)
 ;;
 
 

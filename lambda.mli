@@ -6,7 +6,7 @@ type ty =
 | TyUnit (* Unit type *)
 | TyStr (* String type *)
 | TyPair of ty * ty (* Pair type *)
-| TyList of ty list (* List type *)
+| TyList of ty (* List type *)
 | TyEmpty (* Empty type *)
 ;;
 

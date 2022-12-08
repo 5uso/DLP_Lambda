@@ -122,8 +122,8 @@ atomicTerm :
       { TmStr $1 }
   | LCURLY pairTerm RCURLY
       { $2 }
-  | LIST LBRACKET listTerm RBRACKET
-      { TmList $3 }
+  | LBRACKET listTerm RBRACKET
+      { TmList $2 }
   | LIST LBRACKET RBRACKET
       { TmList [TmEmpty] }
 
@@ -156,11 +156,5 @@ atomicTy :
       { TyStr }
   | LCURLY ty COMMA ty RCURLY
       { TyPair ($2,$4) }
-  | LIST LBRACKET listTy RBRACKET
+  | LIST LBRACKET ty RBRACKET
       { TyList $3 }
-
-listTy :
-  | ty 
-      { [$1] }
-  | ty COMMA listTy
-      { $1::$3 }

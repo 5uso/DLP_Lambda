@@ -37,10 +37,9 @@
 %token EOF
 %token COMMA
 
-%token LCURLY           // pairs are create with curly braces
+%token LCURLY            //Pairs are created with curly braces
 %token RCURLY
-%token FIRST
-%token SECOND
+%token DOT               //Grab a value from the tuple
 
 %token LIST
 %token LBRACKET
@@ -101,10 +100,8 @@ appTerm :
       { TmReadNat $2 }
   | READ_STRING atomicTerm
       { TmReadString $2 }
-  | atomicTerm FIRST
-      { TmFst $1 }
-  | atomicTerm SECOND
-      { TmSnd $1 }
+  | atomicTerm DOT INTV
+      { TmAccess ($1, $3) }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
 

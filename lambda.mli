@@ -31,8 +31,7 @@ type term =
 | TmStr of string (* String term *)
 | TmUnit (* Unit term *)
 | TmPair of term * term (* Pair term *)
-| TmFst of term (* First component of the pair *)
-| TmSnd of term (* Second component of the pair *)
+| TmAccess of term * int (* Nth component of a tuple *)
 | TmList of term list (* Empty list *)
 | TmEmpty (* Null term *)
 ;;

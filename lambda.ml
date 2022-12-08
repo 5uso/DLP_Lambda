@@ -305,7 +305,7 @@ let string_of_term term =
         | TmVar s ->
             s
         | TmStr s ->
-            s
+            "\"" ^ s ^ "\""
         | TmSucc t ->
             let rec f n t' = match t' with
                 TmZero -> string_of_int n

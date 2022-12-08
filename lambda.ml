@@ -105,11 +105,21 @@ let rec is_subtype super ty = match super with
       ty = TyBool
   | TyNat ->
       ty = TyNat
+  | TyStr ->
+      ty = TyStr
   | TyUnit ->
       true (* TODO: Accept anything as unit, is this ok? *)
   | TyArr (super1, super2) ->
       match ty with
           TyArr (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
+        | _ -> false
+  | TyPair(super1, super2) ->
+      match ty with
+          TyPair (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
+        | _ -> false
+  | TyList super1 ->
+      match ty with
+          TyList ty1 -> is_subtype super1 ty1
         | _ -> false
 ;;
 

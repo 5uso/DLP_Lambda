@@ -151,7 +151,7 @@ let rec typeof ctx tm = match tm with
 
     (* T-PrintString *)
   | TmPrintString t1 ->
-      if is_subtype TyUnit (typeof ctx t1) then TyUnit (* TODO *)
+      if is_subtype TyStr (typeof ctx t1) then TyUnit (* TODO *)
       else raise (Type_error "argument of print_string is not a string")
 
     (* T-PrintNewline *)

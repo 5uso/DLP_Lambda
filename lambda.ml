@@ -562,7 +562,8 @@ let rec eval1 ctx tm = match tm with
     (* E-PrintString *)
   | TmPrintString t1 ->
       (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
-      print_string (string_of_term t1);
+      print_string (match t1 with TmStr s -> s
+                    | _ -> raise (Type_error "argument of print_string is not a string"));
       TmUnit
 
     (* E-PrintNewline *)

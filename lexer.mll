@@ -51,7 +51,6 @@ rule token = parse
   | "}"             { RCURLY }
   | "["             { LBRACKET }
   | "]"             { RBRACKET }
-  | "."             { DOT }
   | ['0'-'9']+      { INTV (int_of_string (Lexing.lexeme lexbuf)) }
   | '"'[^'"']*'"'   { STRING_VAL (strip_string_quotes (Lexing.lexeme lexbuf)) } (* String value, delimited by quotes *)
   | ['a'-'z']['a'-'z' '_' '0'-'9']*

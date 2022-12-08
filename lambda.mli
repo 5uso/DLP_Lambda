@@ -7,7 +7,6 @@ type ty =
 | TyStr (* String type *)
 | TyPair of ty * ty (* Pair type *)
 | TyList of ty (* List type *)
-| TyEmpty (* Empty type *)
 ;;
 
 type term =
@@ -32,8 +31,7 @@ type term =
 | TmUnit (* Unit term *)
 | TmPair of term * term (* Pair term *)
 | TmAccess of term * int (* Nth component of a tuple *)
-| TmList of term list (* Empty list *)
-| TmEmpty (* Null term *)
+| TmList of term list (* List *)
 ;;
 
 (* Context now keeps track of values as well as types *)

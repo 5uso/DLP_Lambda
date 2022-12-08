@@ -39,7 +39,6 @@
 
 %token LCURLY            //Pairs are created with curly braces
 %token RCURLY
-%token DOT               //Grab a value from the tuple
 
 %token LIST
 %token LBRACKET
@@ -124,8 +123,8 @@ atomicTerm :
       { $2 }
   | LBRACKET listTerm RBRACKET
       { TmList $2 }
-  | LIST LBRACKET RBRACKET
-      { TmList [TmEmpty] }
+  | LBRACKET RBRACKET
+      { TmList [TmUnit] }
 
 pairTerm :
   | term COMMA term

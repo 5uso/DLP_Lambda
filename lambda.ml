@@ -9,7 +9,6 @@ type ty =
   | TyStr (* String type *)
   | TyPair of ty * ty (* Pair type *)
   | TyList of ty (* List type *)
-  | TyEmpty (* Empty type *)
 ;;
 
 type term =
@@ -35,7 +34,6 @@ type term =
   | TmPair of term * term (* Pair term *)
   | TmAccess of term * int (* Nth component of a tuple *)
   | TmList of term list (* List term *)
-  | TmEmpty (* Empty term (for lists) *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -96,8 +94,6 @@ let rec string_of_ty ty = match ty with
       "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "} pair"
   | TyList t -> 
       "List of " ^ string_of_ty t
-  | TyEmpty ->
-      "Empty"
 ;;
 
 let rec is_subtype super ty = match super with
@@ -110,17 +106,17 @@ let rec is_subtype super ty = match super with
   | TyUnit ->
       true (* TODO: Accept anything as unit, is this ok? *)
   | TyArr (super1, super2) ->
-      match ty with
+      (match ty with
           TyArr (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
-        | _ -> false
+        | _ -> false)
   | TyPair(super1, super2) ->
-      match ty with
+      (match ty with
           TyPair (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
-        | _ -> false
+        | _ -> false)
   | TyList super1 ->
-      match ty with
+      (match ty with
           TyList ty1 -> is_subtype super1 ty1
-        | _ -> false
+        | _ -> false)
 ;;
 
 exception Type_error of string
@@ -138,9 +134,6 @@ let rec typeof ctx tm = match tm with
     (* T-Unit *)
   | TmUnit ->
       TyUnit
-
-  | TmEmpty ->
-      TyEmpty
 
     (* T-If *)
   | TmIf (t1, t2, t3) ->
@@ -250,7 +243,7 @@ let rec typeof ctx tm = match tm with
     (* T-List *)
   | TmList t ->
       match t with
-        [] -> TyList TyEmpty
+        [] -> TyList TyUnit
       | h :: tail -> TyList (List.fold_left (fun acc x -> 
         if typeof ctx x = typeof ctx h 
           then acc
@@ -265,18 +258,13 @@ let term_precedence = function
   | TmTrue
   | TmFalse
   | TmZero
-  | TmEmpty
   | TmVar _ -> 0
   | TmPair (_ ,_) -> 1
+  | TmList t -> 1
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
         | TmSucc s -> f (n + 1) s
-        | _ -> 2
-      in f 1 t
-  | TmList t -> 
-      let rec f n t' = match t' with
-          [] -> 0
         | _ -> 2
       in f 1 t
   | TmPred _
@@ -363,8 +351,6 @@ let string_of_term term =
             internal false inner t ^ "." ^ string_of_int n
         | TmList t ->
             "[" ^ String.concat "," (List.map (internal false inner) t) ^ "]"
-        | TmEmpty -> 
-            ""
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -432,7 +418,6 @@ let rec free_vars tm = match tm with
           h::tail -> aux ((free_vars h) @ accum) tail
           | _ -> (List.rev accum)
       in aux [] t
-  | TmEmpty -> []
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -499,8 +484,6 @@ let rec subst x s tm = match tm with
           h::tail -> aux ((subst x s h) :: accum) tail
           | _ -> TmList (List.rev accum)
       in aux [] t
-  | TmEmpty ->
-      TmEmpty
 ;;
 
 let rec isnumericval tm = match tm with
@@ -645,8 +628,8 @@ let rec eval1 ctx tm = match tm with
   | TmList t ->
       let rec aux accum t2 =
         match t with
-          h::tail -> aux ((eval1 ctx h) :: accum) tail
-          | _ -> TmList (List.rev accum)
+            h::tail -> aux ((eval1 ctx h) :: accum) tail
+          | [] -> TmList (List.rev accum)
       in aux [] t
 
   | _ ->

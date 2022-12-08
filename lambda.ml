@@ -621,7 +621,7 @@ let rec eval1 ctx tm = match tm with
       
     (* E-Access *)
   | TmAccess (t, n) ->
-    (match t with
+    (match (try eval1 ctx t with NoRuleApplies -> t) with
       TmPair (t1, t2) -> (if n = 1 then t1 else t2)
       | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
   

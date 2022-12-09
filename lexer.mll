@@ -35,9 +35,11 @@ rule token = parse
   | "Unit"          { UNIT } (* Unit type *)
   | "String"        { STRING } (* String type *)
   | "List"          { LIST } (* List type *)
+  | "cons"         { CONS } (* Const type for lists *)
+  | "nil"           { NIL } (* Empty list *)
   | "head"          { HEAD } (* List head *)
   | "tail"          { TAIL } (* List tail *)
-  | "isempty"       { ISEMPTY } (* List is empty *)
+  | "isnil"         { ISNIL } (* List is empty *)
   | '('             { LPAREN }
   | ')'             { RPAREN }
   | '.'             { DOT }

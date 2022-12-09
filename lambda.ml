@@ -33,7 +33,11 @@ type term =
   | TmUnit (* Unit term *)
   | TmPair of term * term (* Pair term *)
   | TmAccess of term * int (* Nth component of a tuple *)
-  | TmList of term list (* List term *)
+  | TmNil of ty
+  | TmCons of ty * term * term
+  | TmIsNil of ty * term
+  | TmHead of ty * term
+  | TmTail of ty * term
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -240,27 +244,52 @@ let rec typeof ctx tm = match tm with
       (match t' with TyPair (tyT1,tyT2) -> (if n = 1 then tyT1 else tyT2)
       | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
 
-    (* T-List *)
-  | TmList t ->
-      match t with
-        [] -> TyList TyUnit
-      | h :: tail -> TyList (List.fold_left (fun acc x -> 
-        if typeof ctx x = typeof ctx h 
-          then acc
-      else raise (Type_error "List elements must be of the same type")) (typeof ctx h) tail)
-;;
+    (* T-Cons *)
+  | TmCons (ty, t1, t2) ->
+      let tyT1 = typeof ctx t1 in
+      let tyT2 = typeof ctx t2 in
+        (match (ty, tyT1, tyT2) with
+          (tyT1', tyT2', TyList tyT3') 
+            when tyT1' = tyT2' && tyT1' = tyT3' -> TyList tyT1'
+        | (_, _, _) -> raise (Type_error "Type mismatch in cons"))
 
+    (* T-Nil *)
+  | TmNil t ->
+    TyList t
+
+    (* T-IsNil *)
+  | TmIsNil (ty, t) ->
+      let tyT = typeof ctx t in
+      (match tyT with
+        TyList _ -> TyBool
+      | _ -> raise (Type_error "Argument of is_nil must be a list"))
+      
+    (* T-Head *)
+  | TmHead (ty, t) ->
+    let tyT = typeof ctx t in
+    (match tyT with
+      TyList ty -> ty
+    | _ -> raise (Type_error "Argument of head must be a list"))
+    
+    (* T-Tail *)
+  | TmTail (ty, t) ->
+    let tyT = typeof ctx t in
+    (match tyT with
+      TyList ty -> tyT
+    | _ -> raise (Type_error "Argument of tail must be a list"))
+    ;;
+      
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
 let term_precedence = function
     TmUnit
-  | TmTrue
-  | TmFalse
-  | TmZero
+    | TmTrue
+    | TmFalse
+    | TmZero
   | TmVar _ -> 0
+  | TmIsNil (_, _) -> 1
   | TmPair (_ ,_) -> 1
-  | TmList t -> 1
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
@@ -275,7 +304,11 @@ let term_precedence = function
   | TmStr _
   | TmReadNat _
   | TmAccess (_, _)
+  | TmHead (_, _)
+  | TmTail (_, _)
   | TmReadString _ -> 2
+  | TmCons (_, _, _) -> 1
+  | TmNil _ -> 1
   | TmIf (_, _, _) -> 3
   | TmAbs (_, _, _) -> 4
   | TmFix _ -> 5
@@ -349,8 +382,26 @@ let string_of_term term =
             "{" ^ internal false inner t1 ^ "," ^ internal false inner t2 ^ "}"
         | TmAccess (t, n) ->
             internal false inner t ^ "." ^ string_of_int n
-        | TmList t ->
-            "[" ^ String.concat "," (List.map (internal false inner) t) ^ "]"
+        | TmCons (ty, t1, t2) ->
+            "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
+        | TmNil ty ->
+            "nil[" ^ string_of_ty ty ^ "]"
+        | TmIsNil (ty, t) ->
+          (match t with
+            TmCons (ty,t1,t2) -> internal false inner TmFalse
+          | TmNil ty -> internal false inner TmTrue
+          | _ -> raise (Type_error "[String_of error] argument of IsNil must be a list"))
+        | TmHead (ty, t) ->
+          print_endline (internal false inner t);
+          (match t with
+            TmCons (ty,t1,t2) -> internal false inner t1
+          | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
+          | _ -> raise (Type_error "[String_of error] argument of head must be a list"))
+        | TmTail (ty, t) ->
+          (match t with
+            TmCons (ty,t1,t2) -> internal false inner t2
+          | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
+          | _ -> raise (Type_error "[String_of error] argument of tail must be a list"))
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -412,12 +463,16 @@ let rec free_vars tm = match tm with
       lunion (free_vars t1) (free_vars t2)
   | TmAccess (t, n) ->
       free_vars t
-  | TmList t ->
-      let rec aux accum t2 =
-        match t with
-          h::tail -> aux ((free_vars h) @ accum) tail
-          | _ -> (List.rev accum)
-      in aux [] t
+  | TmCons (ty, t1, t2) ->
+      lunion (free_vars t1) (free_vars t2)
+  | TmNil ty ->
+      []
+  | TmIsNil (ty, t) ->
+      free_vars t
+  | TmHead (ty, t) ->
+      free_vars t
+  | TmTail (ty, t) ->
+      free_vars t
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -478,12 +533,16 @@ let rec subst x s tm = match tm with
       TmPair (subst x s t1, subst x s t2)
   | TmAccess (t, n) ->
       TmAccess (subst x s t, n)
-  | TmList t ->
-      let rec aux accum t =
-        match t with
-          h::tail -> aux ((subst x s h) :: accum) tail
-          | _ -> TmList (List.rev accum)
-      in aux [] t
+  | TmCons (ty, t1, t2) ->
+      TmCons (ty, subst x s t1, subst x s t2)
+  | TmNil ty ->
+      TmNil ty
+  | TmIsNil (ty, t) ->
+      TmIsNil (ty, subst x s t)
+  | TmHead (ty, t) ->
+      TmHead (ty, subst x s t)
+  | TmTail (ty, t) ->
+      TmTail (ty, subst x s t)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -498,7 +557,6 @@ let rec isval tm = match tm with
   | TmUnit  -> true
   | TmAbs _ -> true
   | TmPair _ -> true
-  | TmList _ -> true
   | t when isnumericval t -> true
   | TmStr _ -> true
   | _ -> false
@@ -625,14 +683,6 @@ let rec eval1 ctx tm = match tm with
       TmPair (t1, t2) -> (if n = 1 then t1 else t2)
       | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
   
-    (* E-List *)
-  | TmList t ->
-      let rec aux accum t2 =
-        match t with
-            h::tail -> aux ((eval1 ctx h) :: accum) tail
-          | [] -> TmList (List.rev accum)
-      in aux [] t
-
   | _ ->
       raise NoRuleApplies
 ;;

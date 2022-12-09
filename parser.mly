@@ -41,11 +41,13 @@
 %token RCURLY
 
 %token LIST
+%token CONS
+%token NIL
 %token LBRACKET
 %token RBRACKET
 %token HEAD
 %token TAIL
-%token ISEMPTY
+%token ISNIL
 
 %token <int> INTV
 %token <string> STRING_VAL //String value delimited by quotes
@@ -121,20 +123,20 @@ atomicTerm :
       { TmStr $1 }
   | LCURLY pairTerm RCURLY
       { $2 }
-  | LBRACKET listTerm RBRACKET
-      { TmList $2 }
-  | LBRACKET RBRACKET
-      { TmList [TmUnit] }
+  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
+      { TmCons ($3, $5, $6) }
+  | NIL LBRACKET ty RBRACKET
+      { TmNil $3 }
+  | HEAD LBRACKET ty RBRACKET atomicTerm
+      { TmHead ($3, $5) }
+  | TAIL LBRACKET ty RBRACKET atomicTerm
+      { TmTail ($3, $5) }
+  | ISNIL LBRACKET ty RBRACKET atomicTerm
+      { TmIsNil ($3, $5) }
 
 pairTerm :
   | term COMMA term
       { TmPair ($1, $3) }
-
-listTerm :
-    | term COMMA listTerm
-        { $1::$3 }
-    | term
-        { [$1] }
 
 ty :
     atomicTy
@@ -154,6 +156,6 @@ atomicTy :
   | STRING
       { TyStr }
   | LCURLY ty COMMA ty RCURLY
-      { TyPair ($2,$4) }
-  | LIST LBRACKET ty RBRACKET
-      { TyList $3 }
+      { TyPair ($2, $4) }
+  | LIST ty
+      { TyList $2 }

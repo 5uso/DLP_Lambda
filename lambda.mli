@@ -31,7 +31,11 @@ type term =
 | TmUnit (* Unit term *)
 | TmPair of term * term (* Pair term *)
 | TmAccess of term * int (* Nth component of a tuple *)
-| TmList of term list (* List *)
+| TmNil of ty
+| TmCons of ty * term * term
+| TmIsNil of ty * term
+| TmHead of ty * term
+| TmTail of ty * term
 ;;
 
 (* Context now keeps track of values as well as types *)

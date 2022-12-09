@@ -157,5 +157,5 @@ atomicTy :
       { TyStr }
   | LCURLY ty COMMA ty RCURLY
       { TyPair ($2, $4) }
-  | LIST ty
-      { TyList $2 }
+  | LIST LBRACKET ty RBRACKET
+      { TyList $3 }

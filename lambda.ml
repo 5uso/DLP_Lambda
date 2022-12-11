@@ -108,11 +108,12 @@ let rec string_of_ty ty = match ty with
   | TyStr ->
       "String"
   | TyTuple types ->
+      let len = List.length types in
       let rec tuple_str t acc =
         match t with 
-            hd :: [] -> acc ^ (string_of_ty hd) ^ ")"
+            hd :: [] -> acc ^ (string_of_ty hd) ^ (if len > 1 then ")" else ",)")
           | hd :: tl -> tuple_str tl (acc ^ (string_of_ty hd) ^ ", ")
-          | [] -> acc ^ ")"
+          | [] -> acc ^ (if len > 1 then ")" else ",)")
       in tuple_str types "("
   | TyRecord entries ->
       let rec record_str t acc =
@@ -448,11 +449,12 @@ let string_of_term term =
             "in" ^
               internal true inner t2
         | TmTuple terms ->
+            let len = List.length terms in
             let rec tuple_str t acc =
               match t with 
-                  hd :: [] -> acc ^ (internal false inner hd) ^ ")"
+                  hd :: [] -> acc ^ (internal false inner hd) ^ (if len > 1 then ")" else ",)")
                 | hd :: tl -> tuple_str tl (acc ^ (internal false inner hd) ^ ", ")
-                | [] -> acc ^ ")"
+                | [] -> acc ^ (if len > 1 then ")" else ",)")
             in tuple_str terms "("
         | TmRecord entries ->
             let rec record_str t acc =

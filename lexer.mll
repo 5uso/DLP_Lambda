@@ -29,9 +29,9 @@ rule token = parse
   | "read_string"   { READ_STRING }
   | "cons"          { CONS } (* List constructor *)
   | "nil"           { NIL } (* Empty list *)
-  | "head"          { HEAD } (* List head *)
-  | "tail"          { TAIL } (* List tail *)
-  | "isnil"         { ISNIL } (* List is empty *)
+  | "head"          { HEAD } (* Get list head *)
+  | "tail"          { TAIL } (* Get list tail *)
+  | "isnil"         { ISNIL } (* Check whether list is empty *)
   | "let"           { LET }
   | "letrec"        { LETREC } (* Used for recursion *)
   | "in"            { IN }

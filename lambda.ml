@@ -262,21 +262,21 @@ let rec typeof ctx tm = match tm with
   | TmIsNil (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-          TyList _ -> TyBool
+          TyList lty when lty = ty -> TyBool
         | _ -> raise (Type_error "Argument of is_nil must be a list"))
       
     (* T-Head *)
   | TmHead (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-          TyList ty -> ty
+          TyList lty when lty = ty -> ty
         | _ -> raise (Type_error "Argument of head must be a list"))
     
     (* T-Tail *)
   | TmTail (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-          TyList ty -> tyT
+          TyList lty when lty = ty -> TyList ty
         | _ -> raise (Type_error "Argument of tail must be a list"))
 ;;
       

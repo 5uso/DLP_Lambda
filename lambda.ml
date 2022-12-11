@@ -494,72 +494,74 @@ let rec lunion l1 l2 = match l1 with
   | h::t -> if List.mem h l2 then lunion t l2 else h::(lunion t l2)
 ;;
 
-(* TODO: this may need updating to be compatible with global context *)
-let rec free_vars tm = match tm with
-    TmTrue ->
-      []
-  | TmFalse ->
-      []
-  | TmUnit ->
-      []
-  | TmIf (t1, t2, t3) ->
-      lunion (lunion (free_vars t1) (free_vars t2)) (free_vars t3)
-  | TmZero ->
-      []
-  | TmSucc t ->
-      free_vars t
-  | TmPred t ->
-      free_vars t
-  | TmIsZero t ->
-      free_vars t
-  | TmPrintNat t ->
-      free_vars t
-  | TmPrintString t ->
-      free_vars t
-  | TmPrintNewline t ->
-      free_vars t
-  | TmReadNat t ->
-      free_vars t
-  | TmReadString t ->
-      free_vars t
-  | TmVar s ->
-      [s]
-  | TmAbs (s, _, t) ->
-      ldif (free_vars t) [s]
-  | TmApp (t1, t2) ->
-      lunion (free_vars t1) (free_vars t2)
-  | TmLetIn (s, t1, t2) ->
-      lunion (ldif (free_vars t2) [s]) (free_vars t1)
-  | TmFix (t1) ->
-      free_vars t1
-  | TmStr s ->
-      [s]
-  | TmTuple terms -> 
-      List.fold_left lunion [] (List.rev_map free_vars terms)
-  | TmRecord entries ->
-      List.fold_left lunion [] (List.rev_map (function (_, x) -> free_vars x) entries)
-  | TmAccess (t, n) ->
-      free_vars t
-  | TmAccessNamed (t, n) ->
-      free_vars t
-  | TmCons (ty, t1, t2) ->
-      lunion (free_vars t1) (free_vars t2)
-  | TmNil ty ->
-      []
-  | TmIsNil (ty, t) ->
-      free_vars t
-  | TmHead (ty, t) ->
-      free_vars t
-  | TmTail (ty, t) ->
-      free_vars t
+(* Free vars now needs context to take into account globals *)
+let free_vars ctx tm =
+  let rec free_vars tm = match tm with
+      TmTrue ->
+        []
+    | TmFalse ->
+        []
+    | TmUnit ->
+        []
+    | TmIf (t1, t2, t3) ->
+        lunion (lunion (free_vars t1) (free_vars t2)) (free_vars t3)
+    | TmZero ->
+        []
+    | TmSucc t ->
+        free_vars t
+    | TmPred t ->
+        free_vars t
+    | TmIsZero t ->
+        free_vars t
+    | TmPrintNat t ->
+        free_vars t
+    | TmPrintString t ->
+        free_vars t
+    | TmPrintNewline t ->
+        free_vars t
+    | TmReadNat t ->
+        free_vars t
+    | TmReadString t ->
+        free_vars t
+    | TmVar s ->
+        [s]
+    | TmAbs (s, _, t) ->
+        ldif (free_vars t) [s]
+    | TmApp (t1, t2) ->
+        lunion (free_vars t1) (free_vars t2)
+    | TmLetIn (s, t1, t2) ->
+        lunion (ldif (free_vars t2) [s]) (free_vars t1)
+    | TmFix (t1) ->
+        free_vars t1
+    | TmStr s ->
+        [s]
+    | TmTuple terms -> 
+        List.fold_left lunion [] (List.rev_map free_vars terms)
+    | TmRecord entries ->
+        List.fold_left lunion [] (List.rev_map (function (_, x) -> free_vars x) entries)
+    | TmAccess (t, n) ->
+        free_vars t
+    | TmAccessNamed (t, n) ->
+        free_vars t
+    | TmCons (ty, t1, t2) ->
+        lunion (free_vars t1) (free_vars t2)
+    | TmNil ty ->
+        []
+    | TmIsNil (ty, t) ->
+        free_vars t
+    | TmHead (ty, t) ->
+        free_vars t
+    | TmTail (ty, t) ->
+        free_vars t
+  in lunion (free_vars tm) (List.map (function (s, _, _) -> s) ctx)
 ;;
 
-(* TODO: this may need updating to be compatible with global context *)
 let rec fresh_name x l =
   if not (List.mem x l) then x else fresh_name (x ^ "'") l
 ;;
     
-let rec subst x s tm = match tm with
+(* Subst now needs context to take into account globals as free vars *)
+let rec subst ctx x s tm = match tm with
     TmTrue ->
       TmTrue
   | TmFalse ->
@@ -567,65 +569,65 @@ let rec subst x s tm = match tm with
   | TmUnit ->
       TmUnit
   | TmIf (t1, t2, t3) ->
-      TmIf (subst x s t1, subst x s t2, subst x s t3)
+      TmIf (subst ctx x s t1, subst ctx x s t2, subst ctx x s t3)
   | TmZero ->
       TmZero
   | TmSucc t ->
-      TmSucc (subst x s t)
+      TmSucc (subst ctx x s t)
   | TmPred t ->
-      TmPred (subst x s t)
+      TmPred (subst ctx x s t)
   | TmIsZero t ->
-      TmIsZero (subst x s t)
+      TmIsZero (subst ctx x s t)
   | TmPrintNat t ->
-      TmPrintNat (subst x s t)
+      TmPrintNat (subst ctx x s t)
   | TmPrintString t ->
-      TmPrintString (subst x s t)
+      TmPrintString (subst ctx x s t)
   | TmPrintNewline t ->
-      TmPrintNewline (subst x s t)
+      TmPrintNewline (subst ctx x s t)
   | TmReadNat t ->
-      TmReadNat (subst x s t)
+      TmReadNat (subst ctx x s t)
   | TmReadString t ->
-      TmReadString (subst x s t)
+      TmReadString (subst ctx x s t)
   | TmVar y ->
       if y = x then s else tm
   | TmAbs (y, tyY, t) -> 
       if y = x then tm
-      else let fvs = free_vars s in
+      else let fvs = free_vars ctx s in
           if not (List.mem y fvs)
-          then TmAbs (y, tyY, subst x s t)
-          else let z = fresh_name y (free_vars t @ fvs) in
-                TmAbs (z, tyY, subst x s (subst y (TmVar z) t))  
+          then TmAbs (y, tyY, subst ctx x s t)
+          else let z = fresh_name y (free_vars ctx t @ fvs) in
+                TmAbs (z, tyY, subst ctx x s (subst ctx y (TmVar z) t))  
   | TmApp (t1, t2) ->
-      TmApp (subst x s t1, subst x s t2)
+      TmApp (subst ctx x s t1, subst ctx x s t2)
   | TmLetIn (y, t1, t2) ->
-      if y = x then TmLetIn (y, subst x s t1, t2)
-      else let fvs = free_vars s in
+      if y = x then TmLetIn (y, subst ctx x s t1, t2)
+      else let fvs = free_vars ctx s in
           if not (List.mem y fvs)
-          then TmLetIn (y, subst x s t1, subst x s t2)
-          else let z = fresh_name y (free_vars t2 @ fvs) in
-                TmLetIn (z, subst x s t1, subst x s (subst y (TmVar z) t2))
+          then TmLetIn (y, subst ctx x s t1, subst ctx x s t2)
+          else let z = fresh_name y (free_vars ctx t2 @ fvs) in
+                TmLetIn (z, subst ctx x s t1, subst ctx x s (subst ctx y (TmVar z) t2))
   | TmFix (t1) ->
-      TmFix (subst x s t1)
+      TmFix (subst ctx x s t1)
   | TmStr s ->
       TmStr s
   | TmTuple terms ->
-      TmTuple (List.map (subst x s) terms)
+      TmTuple (List.map (subst ctx x s) terms)
   | TmRecord entries ->
-      TmRecord (List.map (function (n, t) -> (n, subst x s t)) entries)
+      TmRecord (List.map (function (n, t) -> (n, subst ctx x s t)) entries)
   | TmAccess (t, n) ->
-      TmAccess (subst x s t, n)
+      TmAccess (subst ctx x s t, n)
   | TmAccessNamed (t, n) ->
-      TmAccessNamed (subst x s t, n)
+      TmAccessNamed (subst ctx x s t, n)
   | TmCons (ty, t1, t2) ->
-      TmCons (ty, subst x s t1, subst x s t2)
+      TmCons (ty, subst ctx x s t1, subst ctx x s t2)
   | TmNil ty ->
       TmNil ty
   | TmIsNil (ty, t) ->
-      TmIsNil (ty, subst x s t)
+      TmIsNil (ty, subst ctx x s t)
   | TmHead (ty, t) ->
-      TmHead (ty, subst x s t)
+      TmHead (ty, subst ctx x s t)
   | TmTail (ty, t) ->
-      TmTail (ty, subst x s t)
+      TmTail (ty, subst ctx x s t)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -719,7 +721,7 @@ let rec eval1 ctx tm = match tm with
     (* E-ReadNat *)
   | TmReadNat t1 ->
       (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
-      int_to_nat (read_int ()) (* TODO: Should this return 0 with invalid input? Currently crashes *)
+      int_to_nat (read_int ())
 
     (* E-ReadString *)
   | TmReadString t1 ->
@@ -728,7 +730,7 @@ let rec eval1 ctx tm = match tm with
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->
-      subst x v2 t12
+      subst ctx x v2 t12
 
     (* E-App2: evaluate argument before applying function *)
   | TmApp (v1, t2) when isval v1 ->
@@ -742,7 +744,7 @@ let rec eval1 ctx tm = match tm with
 
     (* E-LetV *)
   | TmLetIn (x, v1, t2) when isval v1 ->
-      subst x v1 t2
+      subst ctx x v1 t2
 
     (* E-Let *)
   | TmLetIn(x, t1, t2) ->
@@ -751,7 +753,7 @@ let rec eval1 ctx tm = match tm with
 
     (* E-FixBeta *)
   | TmFix (TmAbs (x, _, t2)) ->
-      subst x tm t2
+      subst ctx x tm t2
 
     (* E-Fix *)
   | TmFix (t1) ->
@@ -823,7 +825,7 @@ let rec eval ctx tm =
 
 let rec substall ctx tm =
   match ctx with (x, _, s) :: tl ->
-    subst x s tm
+    subst ctx x s tm
   | _ -> tm
 ;;
 

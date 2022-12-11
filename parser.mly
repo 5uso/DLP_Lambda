@@ -80,7 +80,7 @@ term :
   | LETREC STRINGV COLON ty EQ term IN term
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) } %prec BEFORE_SCOLON;
   | term SCOLON term
-      { TmApp (TmAbs (fresh_name "x" (free_vars $3), TyUnit, $3), $1) }
+      { TmApp (TmAbs (fresh_name "x" (free_vars [] $3), TyUnit, $3), $1) }
 
 appTerm :
     atomicTerm

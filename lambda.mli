@@ -64,7 +64,7 @@ exception Type_error of string;;
 val typeof : context -> term -> ty;;
 
 val string_of_term : term -> string;;
-val free_vars : term -> string list;;
+val free_vars : context -> term -> string list;;
 val fresh_name : string -> string list -> string;;
 exception NoRuleApplies;;
 val eval : context -> term -> term;;

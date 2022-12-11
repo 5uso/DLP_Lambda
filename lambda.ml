@@ -255,7 +255,7 @@ let rec typeof ctx tm = match tm with
 
     (* T-Nil *)
   | TmNil t ->
-    TyList t
+      TyList t
 
     (* T-IsNil *)
   | TmIsNil (ty, t) ->
@@ -266,18 +266,18 @@ let rec typeof ctx tm = match tm with
       
     (* T-Head *)
   | TmHead (ty, t) ->
-    let tyT = typeof ctx t in
-    (match tyT with
-      TyList ty -> ty
-    | _ -> raise (Type_error "Argument of head must be a list"))
+      let tyT = typeof ctx t in
+      (match tyT with
+        TyList ty -> ty
+      | _ -> raise (Type_error "Argument of head must be a list"))
     
     (* T-Tail *)
   | TmTail (ty, t) ->
-    let tyT = typeof ctx t in
-    (match tyT with
-      TyList ty -> tyT
-    | _ -> raise (Type_error "Argument of tail must be a list"))
-    ;;
+      let tyT = typeof ctx t in
+      (match tyT with
+        TyList ty -> tyT
+      | _ -> raise (Type_error "Argument of tail must be a list"))
+;;
       
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -679,9 +679,9 @@ let rec eval1 ctx tm = match tm with
       
     (* E-Access *)
   | TmAccess (t, n) ->
-    (match (try eval1 ctx t with NoRuleApplies -> t) with
-      TmPair (t1, t2) -> (if n = 1 then t1 else t2)
-      | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
+      (match (try eval1 ctx t with NoRuleApplies -> t) with
+        TmPair (t1, t2) -> (if n = 1 then t1 else t2)
+        | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
   
   | _ ->
       raise NoRuleApplies

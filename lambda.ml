@@ -557,9 +557,11 @@ let rec isval tm = match tm with
   | TmFalse -> true
   | TmUnit  -> true
   | TmAbs _ -> true
-  | TmPair _ -> true
-  | t when isnumericval t -> true
   | TmStr _ -> true
+  | TmPair _ -> true
+  | TmCons (_, _, _) -> true
+  | TmNil _ -> true
+  | t when isnumericval t -> true
   | _ -> false
 ;;
 

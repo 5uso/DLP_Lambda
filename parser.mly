@@ -221,13 +221,13 @@ recordTyEntry :
       { ($1, $3) }
 
 listAlt :
-    ty LBRACKET term RBRACKET
-      { ($1, [$3]) }
-  | ty LBRACKET term listAltR RBRACKET
-      { ($1, $3::(List.rev $4)) }
+    ty LBRACKET listAltR RBRACKET
+      { ($1, $3) }
 
 listAltR :
-    listAltR COMMA term
-      { $3::$1 }
-  | COMMA term
-      { [$2] }
+    term
+      { [$1] }
+  | term COMMA listAltR
+      { $1::$3 }
+  | /* Empty */
+      { [] }

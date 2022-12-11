@@ -101,16 +101,14 @@ appTerm :
       { TmReadNat $2 }
   | READ_STRING atomicTerm
       { TmReadString $2 }
-  | HEAD LBRACKET ty RBRACKET appTerm
+  | HEAD LBRACKET ty RBRACKET atomicTerm
       { TmHead ($3, $5) }
-  | TAIL LBRACKET ty RBRACKET appTerm
+  | TAIL LBRACKET ty RBRACKET atomicTerm
       { TmTail ($3, $5) }
-  | ISNIL LBRACKET ty RBRACKET appTerm
+  | ISNIL LBRACKET ty RBRACKET atomicTerm
       { TmIsNil ($3, $5) }
-  | CONS LBRACKET ty RBRACKET appTerm appTerm
+  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
-  | NIL LBRACKET ty RBRACKET
-      { TmNil $3 }
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
   | atomicTerm DOT STRINGV
@@ -139,6 +137,8 @@ atomicTerm :
       { TmTuple $1 }
   | recordTerm
       { TmRecord $1 }
+  | NIL LBRACKET ty RBRACKET
+      { TmNil $3 }
 
 tupleTerm :
     LPAREN term COMMA RPAREN

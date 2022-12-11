@@ -109,6 +109,8 @@ appTerm :
       { TmIsNil ($3, $5) }
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
+  | atomicTerm DOT STRINGV
+      { TmAccessNamed ($1, $3) }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
 

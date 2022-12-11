@@ -629,6 +629,7 @@ let rec isval tm = match tm with
   | TmAbs _ -> true
   | TmStr _ -> true
   | TmTuple _ -> true
+  | TmRecord _ -> true
   | TmCons (_, _, _) -> true
   | TmNil _ -> true
   | t when isnumericval t -> true

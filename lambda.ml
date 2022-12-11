@@ -7,7 +7,8 @@ type ty =
   | TyArr of ty * ty
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
-  | TyPair of ty * ty (* Pair type *)
+  | TyTuple of ty list (* Tuple type *)
+  | TyRecord of (string * ty) list (* Record type *)
   | TyList of ty (* List type *)
 ;;
 
@@ -31,9 +32,15 @@ type term =
   | TmFix of term (* Used for recursion *)
   | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
-  | TmPair of term * term (* Pair term *)
+  | TmTuple of term list (* Tuple term *)
+  | TmRecord of (string * term) list (* Record term *)
   | TmAccess of term * int (* Nth component of a tuple *)
-  | TmList of term list (* List term *)
+  | TmAccessNamed of term * string (* Named component of a record *)
+  | TmNil of ty (* Empty list term *)
+  | TmCons of ty * term * term (* List cons term *)
+  | TmIsNil of ty * term (* Is list empty *)
+  | TmHead of ty * term (* Head of list *)
+  | TmTail of ty * term (* Tail of list *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -53,6 +60,16 @@ let rec int_to_nat = function
   | n -> TmSucc (int_to_nat (n - 1))
 ;;
 
+(* List constructor syntax sugar *)
+let rec list_to_cons = function
+    (ty, l) -> (
+      let rec internal l =
+        match l with
+            hd :: tl -> TmCons (ty, hd, internal tl)
+          | [] -> TmNil ty
+      in internal l
+    )
+;;
 
 (* CONTEXT MANAGEMENT *)
 
@@ -90,8 +107,20 @@ let rec string_of_ty ty = match ty with
       )
   | TyStr ->
       "String"
-  | TyPair (ty1, ty2) ->
-      "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "}"
+  | TyTuple types ->
+      let rec tuple_str t acc =
+        match t with 
+            hd :: [] -> acc ^ (string_of_ty hd) ^ ")"
+          | hd :: tl -> tuple_str tl (acc ^ (string_of_ty hd) ^ ", ")
+          | [] -> acc ^ ")"
+      in tuple_str types "("
+  | TyRecord entries ->
+      let rec record_str t acc =
+        match t with
+            (name, rty) :: [] -> acc ^ name ^ ": " ^ (string_of_ty rty) ^ "}"
+          | (name, rty) :: tl -> record_str tl (acc ^ name ^ ": " ^ (string_of_ty rty) ^ ", ")
+          | [] -> acc ^ "}"
+      in record_str entries "{"
   | TyList t -> 
       "[" ^ string_of_ty t ^ "]"
 ;;
@@ -109,9 +138,20 @@ let rec is_subtype super ty = match super with
       (match ty with
           TyArr (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
         | _ -> false)
-  | TyPair(super1, super2) ->
+  | TyTuple types -> (* Tuples can be subtyped by smaller tuples that have the same starting types *)
       (match ty with
-          TyPair (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
+          TyTuple subtypes -> (
+            let rec tuple_sub sup sub =
+              match sup with
+                  [] -> (match sub with [] -> true | _ -> false)
+                | shd :: stl -> (match sub with hd :: tl when hd = shd -> true | _ -> false)
+            in tuple_sub types subtypes
+          )
+        | _ -> false) 
+  | TyRecord entries -> (* Records can be subtyped if all named entries of the super appear in the sub with the same type *)
+      (match ty with
+          TyRecord subentries ->
+            List.fold_left (&&) true (List.rev_map (function x -> List.exists ((=) x) subentries) entries)
         | _ -> false)
   | TyList super1 ->
       (match ty with
@@ -228,28 +268,84 @@ let rec typeof ctx tm = match tm with
   | TmStr _ ->
       TyStr
   
-    (* T-Pair *)
-  | TmPair (t1,t2) ->
-      let tyT1 = typeof ctx t1 in
-      let tyT2 = typeof ctx t2 in
-      TyPair (tyT1,tyT2)
+    (* T-Tuple *)
+  | TmTuple terms ->
+      let rec tuple_type t acc =
+        match t with
+            hd :: tl -> tuple_type tl ((typeof ctx hd)::acc)
+          | [] -> acc
+      in TyTuple (List.rev (tuple_type terms []))
+
+    (* T-Record *)
+  | TmRecord entries ->
+      let rec record_type t acc =
+        match t with
+            (name, rt) :: tl -> record_type tl ((name, (typeof ctx rt))::acc)
+          | [] -> acc
+      in TyRecord (record_type entries [])
 
     (* T-Access *)
-  | TmAccess (t,n) ->
+  | TmAccess (t, n) ->
       let t' = typeof ctx t in
-      (match t' with TyPair (tyT1,tyT2) -> (if n = 1 then tyT1 else tyT2)
-      | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
+      (match t' with
+          TyTuple types -> (
+            let rec access_type t i =
+              match t with
+                  hd :: tl -> if i = n then hd
+                  else access_type tl (i + 1)
+                | [] -> raise (Type_error "Tuple projection out of bounds")
+            in access_type types 1
+          )
+        | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
 
-    (* T-List *)
-  | TmList t ->
-      match t with
-        [] -> TyList TyUnit
-      | h :: tail -> TyList (List.fold_left (fun acc x -> 
-        if typeof ctx x = typeof ctx h 
-          then acc
-      else raise (Type_error "List elements must be of the same type")) (typeof ctx h) tail)
+    (* T-AccessNamed *)
+  | TmAccessNamed (t, n) ->
+      let t' = typeof ctx t in
+      (match t' with
+          TyRecord entries -> (
+            let rec access_named_type t =
+              match t with
+                  (name, rty) :: tl -> if name = n then rty else access_named_type tl
+                | [] -> raise (Type_error "Record projection didn't match")
+            in access_named_type entries
+          )
+        | _ -> raise (Type_error "Can only apply named projection to a record"))
+
+    (* T-Cons *)
+  | TmCons (ty, t1, t2) ->
+      let tyT1 = typeof ctx t1 in
+      let tyT2 = typeof ctx t2 in
+      (match (ty, tyT1, tyT2) with
+          (tyT1', tyT2', TyList tyT3') when tyT1' = tyT2' && tyT1' = tyT3' -> 
+            TyList tyT1'
+        | (_, _, _) -> raise (Type_error "Type mismatch in cons"))
+
+    (* T-Nil *)
+  | TmNil t ->
+      TyList t
+
+    (* T-IsNil *)
+  | TmIsNil (ty, t) ->
+      let tyT = typeof ctx t in
+      (match tyT with
+          TyList lty when lty = ty -> TyBool
+        | _ -> raise (Type_error ("Argument of is_nil[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+      
+    (* T-Head *)
+  | TmHead (ty, t) ->
+      let tyT = typeof ctx t in
+      (match tyT with
+          TyList lty when lty = ty -> ty
+        | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+    
+    (* T-Tail *)
+  | TmTail (ty, t) ->
+      let tyT = typeof ctx t in
+      (match tyT with
+          TyList lty when lty = ty -> TyList ty
+        | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 ;;
-
+      
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
@@ -258,9 +354,11 @@ let term_precedence = function
   | TmTrue
   | TmFalse
   | TmZero
-  | TmVar _ -> 0
-  | TmPair (_ ,_) -> 1
-  | TmList t -> 1
+  | TmVar _
+  | TmStr _
+  | TmNil _ -> 0
+  | TmTuple _
+  | TmRecord _ -> 1
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
@@ -272,10 +370,14 @@ let term_precedence = function
   | TmPrintNat _
   | TmPrintString _
   | TmPrintNewline _
-  | TmStr _
   | TmReadNat _
   | TmAccess (_, _)
+  | TmAccessNamed (_, _)
+  | TmHead (_, _)
+  | TmTail (_, _)
+  | TmIsNil (_, _)
   | TmReadString _ -> 2
+  | TmCons (_, _, _) -> 2
   | TmIf (_, _, _) -> 3
   | TmAbs (_, _, _) -> 4
   | TmFix _ -> 5
@@ -345,12 +447,34 @@ let string_of_term term =
               internal true inner t1 ^
             "in" ^
               internal true inner t2
-        | TmPair (t1, t2) ->
-            "{" ^ internal false inner t1 ^ "," ^ internal false inner t2 ^ "}"
+        | TmTuple terms ->
+            let rec tuple_str t acc =
+              match t with 
+                  hd :: [] -> acc ^ (internal false inner hd) ^ ")"
+                | hd :: tl -> tuple_str tl (acc ^ (internal false inner hd) ^ ", ")
+                | [] -> acc ^ ")"
+            in tuple_str terms "("
+        | TmRecord entries ->
+            let rec record_str t acc =
+              match t with
+                  (name, rt) :: [] -> acc ^ name ^ ": " ^ (internal false inner rt) ^ "}"
+                | (name, rt) :: tl -> record_str tl (acc ^ name ^ ": " ^ (internal false inner rt) ^ ", ")
+                | [] -> acc ^ "}"
+            in record_str entries "{"
         | TmAccess (t, n) ->
             internal false inner t ^ "." ^ string_of_int n
-        | TmList t ->
-            "[" ^ String.concat "," (List.map (internal false inner) t) ^ "]"
+        | TmAccessNamed (t, n) ->
+            internal false inner t ^ "." ^ n
+        | TmCons (ty, t1, t2) ->
+            "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
+        | TmNil ty ->
+            "nil[" ^ string_of_ty ty ^ "]"
+        | TmIsNil (ty, t) ->
+            "isnil[" ^ string_of_ty ty ^ "] " ^ internal false inner t
+        | TmHead (ty, t) ->
+            "head[" ^ string_of_ty ty ^ "] " ^ internal false inner t
+        | TmTail (ty, t) ->
+            "tail[" ^ string_of_ty ty ^ "] " ^ internal false inner t
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -408,16 +532,24 @@ let rec free_vars tm = match tm with
       free_vars t1
   | TmStr s ->
       [s]
-  | TmPair (t1,t2) -> 
-      lunion (free_vars t1) (free_vars t2)
+  | TmTuple terms -> 
+      List.fold_left lunion [] (List.rev_map free_vars terms)
+  | TmRecord entries ->
+      List.fold_left lunion [] (List.rev_map (function (_, x) -> free_vars x) entries)
   | TmAccess (t, n) ->
       free_vars t
-  | TmList t ->
-      let rec aux accum t2 =
-        match t with
-          h::tail -> aux ((free_vars h) @ accum) tail
-          | _ -> (List.rev accum)
-      in aux [] t
+  | TmAccessNamed (t, n) ->
+      free_vars t
+  | TmCons (ty, t1, t2) ->
+      lunion (free_vars t1) (free_vars t2)
+  | TmNil ty ->
+      []
+  | TmIsNil (ty, t) ->
+      free_vars t
+  | TmHead (ty, t) ->
+      free_vars t
+  | TmTail (ty, t) ->
+      free_vars t
 ;;
 
 (* TODO: this may need updating to be compatible with global context *)
@@ -474,16 +606,24 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t1)
   | TmStr s ->
       TmStr s
-  | TmPair (t1,t2) ->
-      TmPair (subst x s t1, subst x s t2)
+  | TmTuple terms ->
+      TmTuple (List.map (subst x s) terms)
+  | TmRecord entries ->
+      TmRecord (List.map (function (n, t) -> (n, subst x s t)) entries)
   | TmAccess (t, n) ->
       TmAccess (subst x s t, n)
-  | TmList t ->
-      let rec aux accum t =
-        match t with
-          h::tail -> aux ((subst x s h) :: accum) tail
-          | _ -> TmList (List.rev accum)
-      in aux [] t
+  | TmAccessNamed (t, n) ->
+      TmAccessNamed (subst x s t, n)
+  | TmCons (ty, t1, t2) ->
+      TmCons (ty, subst x s t1, subst x s t2)
+  | TmNil ty ->
+      TmNil ty
+  | TmIsNil (ty, t) ->
+      TmIsNil (ty, subst x s t)
+  | TmHead (ty, t) ->
+      TmHead (ty, subst x s t)
+  | TmTail (ty, t) ->
+      TmTail (ty, subst x s t)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -497,10 +637,12 @@ let rec isval tm = match tm with
   | TmFalse -> true
   | TmUnit  -> true
   | TmAbs _ -> true
-  | TmPair _ -> true
-  | TmList _ -> true
-  | t when isnumericval t -> true
   | TmStr _ -> true
+  | TmTuple _ -> true
+  | TmRecord _ -> true
+  | TmCons (_, _, _) -> true
+  | TmNil _ -> true
+  | t when isnumericval t -> true
   | _ -> false
 ;;
 
@@ -621,17 +763,47 @@ let rec eval1 ctx tm = match tm with
       
     (* E-Access *)
   | TmAccess (t, n) ->
-    (match (try eval1 ctx t with NoRuleApplies -> t) with
-      TmPair (t1, t2) -> (if n = 1 then t1 else t2)
-      | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
+      (match t with
+          TmTuple terms -> (
+            let rec access_eval t i =
+              match t with
+                  hd :: tl -> if i = n then hd else access_eval tl (i + 1)
+                | [] -> raise (Type_error "Tuple projection out of bounds")
+            in access_eval terms 1
+          )
+        | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
   
-    (* E-List *)
-  | TmList t ->
-      let rec aux accum t2 =
-        match t with
-            h::tail -> aux ((eval1 ctx h) :: accum) tail
-          | [] -> TmList (List.rev accum)
-      in aux [] t
+    (* E-AccessNamed *)
+  | TmAccessNamed (t, n) ->
+      (match t with
+          TmRecord entries -> (
+            let rec access_named_eval t =
+              match t with
+                  (name, rt) :: tl -> if name = n then rt else access_named_eval tl
+                | [] -> raise (Type_error "Record projection didn't match")
+            in access_named_eval entries
+          )
+        | _ -> raise (Type_error "Can only apply named projection to a record"))
+
+    (* E-IsNil *)
+  | TmIsNil (ty, t) ->
+      (match t with
+          TmNil _ -> TmTrue
+        | _ -> TmFalse)
+
+    (* E-Head *)
+  | TmHead (ty, t) ->
+      (match t with
+          TmCons (lty, t1, t2) -> t1
+        | TmNil lty -> raise (Type_error ("Can't get head of Nil"))
+        | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+
+    (* E-Head *)
+  | TmTail (ty, t) ->
+      (match t with
+          TmCons (lty, t1, t2) -> t2
+        | TmNil lty -> TmNil lty
+        | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 
   | _ ->
       raise NoRuleApplies

@@ -24,8 +24,8 @@ let check input =
       let ctx = check_cmd ctx c in
       check_loop ctx (line + 1)
     with
-      Lexical_error ->
-        Printf.printf "Lexical error in line %d\n" line; false
+      Lexical_error e ->
+        Printf.printf "Lexical error in line %d: %s\n" line e; false
     | Parse_error ->
         Printf.printf "Syntax error in line %d\n" line; false
     | Type_error(e) ->

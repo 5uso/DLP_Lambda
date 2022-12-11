@@ -5,7 +5,8 @@ type ty =
 | TyArr of ty * ty
 | TyUnit (* Unit type *)
 | TyStr (* String type *)
-| TyPair of ty * ty (* Pair type *)
+| TyTuple of ty list (* Tuple type *)
+| TyRecord of (string * ty) list (* Record type *)
 | TyList of ty (* List type *)
 ;;
 
@@ -29,9 +30,15 @@ type term =
 | TmFix of term (* Used for recursion *)
 | TmStr of string (* String term *)
 | TmUnit (* Unit term *)
-| TmPair of term * term (* Pair term *)
+| TmTuple of term list (* Tuple term *)
+| TmRecord of (string * term) list (* Record term *)
 | TmAccess of term * int (* Nth component of a tuple *)
-| TmList of term list (* List *)
+| TmAccessNamed of term * string (* Named component of a record *)
+| TmNil of ty
+| TmCons of ty * term * term
+| TmIsNil of ty * term
+| TmHead of ty * term
+| TmTail of ty * term
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -46,6 +53,7 @@ type cmd = (* For statements that aren't treated as terms *)
 
 (* Moved int to nat conversion here for convenience *)
 val int_to_nat : int -> term;;
+val list_to_cons: ty * term list -> term;;
 
 val emptyctx : context;;
 val addbinding : context -> string -> ty -> term -> context;;

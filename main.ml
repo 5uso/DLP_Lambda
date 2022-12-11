@@ -29,8 +29,8 @@ let top_level_loop () =
       let ctx = run_cmd ctx c in
       loop ctx
     with
-       Lexical_error ->
-         print_endline "lexical error";
+       Lexical_error e ->
+         print_endline ("lexical error: " ^ e);
          loop ctx
      | Parse_error ->
          print_endline "syntax error";

@@ -6,3 +6,4 @@ parser.mli
 parser.ml
 top
 run
+parser.output

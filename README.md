@@ -10,7 +10,7 @@
 ---
 ## Luca
 - [x] (2.3) Strings
-- [x] (2.4) Pares
+- [x] (2.4) Pares 
 - [ ] (2.5) Tuplas (1,5p)
 - [ ] (2.6) Registros (1p)
 - [ ] (2.7) Listas (1p)

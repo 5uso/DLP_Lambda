@@ -1,0 +1,18 @@
+x = cons[Nat] 7 (cons[Nat] 8 nil[Nat]);;
+
+let isnilnat = L x : List[Nat]. if isnil[Nat] x then 0 else 1 in len (cons[Nat] 8 nil[Nat]);;
+
+letrec sum : Nat -> Nat -> Nat =
+     lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m)
+   in
+     letrec length : List[Nat] -> Nat =
+       lambda l : List[Nat]. if isnil[Nat] l then 0 else sum 1 (length (tail[Nat] l))
+     in
+       length (cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat])))
+     ;;
+
+letrec length : List[Nat] -> Nat =
+       lambda l : List[Nat]. if isnil[Nat] l then 0 else succ 1)
+     in
+       length (cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat])))
+     ;;

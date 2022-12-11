@@ -7,7 +7,7 @@ lambda: lambda.ml lambda.mli
 	ocamlc -c lambda.mli lambda.ml
 
 parser: parser.mly
-	ocamlyacc parser.mly
+	ocamlyacc -v parser.mly
 	ocamlc -c parser.mli parser.ml
 
 lexer: lexer.mll

@@ -1,7 +1,7 @@
 
 {
   open Parser;;
-  exception Lexical_error;; 
+  exception Lexical_error of string;; 
 
   let strip_string_quotes str =
     match String.length str with
@@ -27,6 +27,11 @@ rule token = parse
   | "print_newline" { PRINT_NEWLINE }
   | "read_nat"      { READ_NAT }
   | "read_string"   { READ_STRING }
+  | "cons"          { CONS } (* List constructor *)
+  | "nil"           { NIL } (* Empty list *)
+  | "head"          { HEAD } (* Get list head *)
+  | "tail"          { TAIL } (* Get list tail *)
+  | "isnil"         { ISNIL } (* Check whether list is empty *)
   | "let"           { LET }
   | "letrec"        { LETREC } (* Used for recursion *)
   | "in"            { IN }
@@ -35,9 +40,6 @@ rule token = parse
   | "Unit"          { UNIT } (* Unit type *)
   | "String"        { STRING } (* String type *)
   | "List"          { LIST } (* List type *)
-  | "head"          { HEAD } (* List head *)
-  | "tail"          { TAIL } (* List tail *)
-  | "isempty"       { ISEMPTY } (* List is empty *)
   | '('             { LPAREN }
   | ')'             { RPAREN }
   | '.'             { DOT }
@@ -56,5 +58,4 @@ rule token = parse
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                     { STRINGV (Lexing.lexeme lexbuf) }
   | eof             { EOF }
-  | _               { raise Lexical_error } 
-
+  | _               { raise (Lexical_error ("unexpected '" ^ (Lexing.lexeme lexbuf) ^ "'")) } 

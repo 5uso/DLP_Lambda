@@ -261,7 +261,7 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       (match tyT1 with
           TyArr (tyT11, tyT12) ->
-            if is_subtype tyT12 tyT11 then tyT12 (* TODO: Check that this works *)
+            if is_subtype tyT12 tyT11 then tyT12
             else raise (Type_error "result of body not compatible with domain")
         | _ -> raise (Type_error "arrow type expected"))
   
@@ -316,10 +316,9 @@ let rec typeof ctx tm = match tm with
   | TmCons (ty, t1, t2) ->
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
-      (match (ty, tyT1, tyT2) with
-          (tyT1', tyT2', TyList tyT3') when tyT1' = tyT2' && tyT1' = tyT3' -> 
-            TyList tyT1'
-        | (_, _, _) -> raise (Type_error "Type mismatch in cons"))
+      (match tyT2 with
+          TyList lty when is_subtype ty tyT1 && is_subtype ty lty -> TyList ty
+        | _ -> raise (Type_error "Type mismatch in cons"))
 
     (* T-Nil *)
   | TmNil t ->
@@ -329,21 +328,21 @@ let rec typeof ctx tm = match tm with
   | TmIsNil (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-          TyList lty when lty = ty -> TyBool
+          TyList lty when is_subtype ty lty -> TyBool
         | _ -> raise (Type_error ("Argument of is_nil[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
       
     (* T-Head *)
   | TmHead (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-          TyList lty when lty = ty -> ty
+          TyList lty when is_subtype ty lty -> ty
         | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
     
     (* T-Tail *)
   | TmTail (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-          TyList lty when lty = ty -> TyList ty
+          TyList lty when is_subtype ty lty -> TyList ty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 ;;
       

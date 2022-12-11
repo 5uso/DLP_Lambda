@@ -115,8 +115,6 @@ appTerm :
       { TmAccessNamed ($1, $3) }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
-  | listAlt
-      { list_to_cons $1 }
 
 atomicTerm :
     LPAREN term RPAREN
@@ -139,6 +137,8 @@ atomicTerm :
       { TmRecord $1 }
   | NIL LBRACKET ty RBRACKET
       { TmNil $3 }
+  | listAlt
+      { list_to_cons $1 }
 
 tupleTerm :
     LPAREN term COMMA RPAREN

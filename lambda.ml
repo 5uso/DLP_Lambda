@@ -263,21 +263,21 @@ let rec typeof ctx tm = match tm with
       let tyT = typeof ctx t in
       (match tyT with
           TyList lty when lty = ty -> TyBool
-        | _ -> raise (Type_error "Argument of is_nil must be a list"))
+        | _ -> raise (Type_error ("Argument of is_nil[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
       
     (* T-Head *)
   | TmHead (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
           TyList lty when lty = ty -> ty
-        | _ -> raise (Type_error "Argument of head must be a list"))
+        | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
     
     (* T-Tail *)
   | TmTail (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
           TyList lty when lty = ty -> TyList ty
-        | _ -> raise (Type_error "Argument of tail must be a list"))
+        | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 ;;
       
 
@@ -673,9 +673,29 @@ let rec eval1 ctx tm = match tm with
     (* E-Access *)
   | TmAccess (t, n) ->
       (match (try eval1 ctx t with NoRuleApplies -> t) with
-        TmPair (t1, t2) -> (if n = 1 then t1 else t2)
+          TmPair (t1, t2) -> (if n = 1 then t1 else t2)
         | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
   
+    (* E-IsNil *)
+  | TmIsNil (ty, t) ->
+      (match t with
+          TmNil _ -> TmTrue
+        | _ -> TmFalse)
+
+    (* E-Head *)
+  | TmHead (ty, t) ->
+      (match t with
+          TmCons (lty, t1, t2) -> t1
+        | TmNil lty -> raise (Type_error ("Can't get head of Nil"))
+        | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+
+    (* E-Head *)
+  | TmTail (ty, t) ->
+      (match t with
+          TmCons (lty, t1, t2) -> t2
+        | TmNil lty -> TmNil lty
+        | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+
   | _ ->
       raise NoRuleApplies
 ;;

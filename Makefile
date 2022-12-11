@@ -1,3 +1,4 @@
+.PHONY: run
 
 all: lambda parser lexer main run
 	ocamlc -o top str.cma lambda.cmo parser.cmo lexer.cmo main.cmo

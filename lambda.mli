@@ -53,6 +53,7 @@ type cmd = (* For statements that aren't treated as terms *)
 
 (* Moved int to nat conversion here for convenience *)
 val int_to_nat : int -> term;;
+val list_to_cons: ty * term list -> term;;
 
 val emptyctx : context;;
 val addbinding : context -> string -> ty -> term -> context;;

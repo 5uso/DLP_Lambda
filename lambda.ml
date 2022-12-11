@@ -60,6 +60,16 @@ let rec int_to_nat = function
   | n -> TmSucc (int_to_nat (n - 1))
 ;;
 
+(* List constructor syntax sugar *)
+let rec list_to_cons = function
+    (ty, l) -> (
+      let rec internal l =
+        match l with
+            hd :: tl -> TmCons (ty, hd, internal tl)
+          | [] -> TmNil ty
+      in internal l
+    )
+;;
 
 (* CONTEXT MANAGEMENT *)
 

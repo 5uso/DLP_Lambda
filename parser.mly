@@ -107,12 +107,18 @@ appTerm :
       { TmTail ($3, $5) }
   | ISNIL LBRACKET ty RBRACKET atomicTerm
       { TmIsNil ($3, $5) }
+  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
+      { TmCons ($3, $5, $6) }
+  | NIL LBRACKET ty RBRACKET
+      { TmNil $3 }
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
   | atomicTerm DOT STRINGV
       { TmAccessNamed ($1, $3) }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
+  | listAlt
+      { list_to_cons $1 }
 
 atomicTerm :
     LPAREN term RPAREN
@@ -133,10 +139,6 @@ atomicTerm :
       { TmTuple $1 }
   | recordTerm
       { TmRecord $1 }
-  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
-      { TmCons ($3, $5, $6) }
-  | NIL LBRACKET ty RBRACKET
-      { TmNil $3 }
 
 tupleTerm :
     LPAREN term COMMA RPAREN
@@ -217,3 +219,15 @@ recordTyR :
 recordTyEntry :
     STRINGV COLON ty
       { ($1, $3) }
+
+listAlt :
+    ty LBRACKET term RBRACKET
+      { ($1, [$3]) }
+  | ty LBRACKET term listAltR RBRACKET
+      { ($1, $3::(List.rev $4)) }
+
+listAltR :
+    listAltR COMMA term
+      { $3::$1 }
+  | COMMA term
+      { [$2] }

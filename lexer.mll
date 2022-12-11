@@ -58,5 +58,4 @@ rule token = parse
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                     { STRINGV (Lexing.lexeme lexbuf) }
   | eof             { EOF }
-  | [^' ' '\t' '\r' '\n']+
-                    { raise (Lexical_error ("unexpected '" ^ (Lexing.lexeme lexbuf) ^ "'")) } 
+  | _               { raise (Lexical_error ("unexpected '" ^ (Lexing.lexeme lexbuf) ^ "'")) } 

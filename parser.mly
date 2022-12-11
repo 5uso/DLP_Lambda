@@ -135,8 +135,8 @@ atomicTerm :
       { TmNil $3 }
 
 pairTerm :
-  | term COMMA term
-      { TmPair ($1, $3) }
+    term COMMA term
+        { TmPair ($1, $3) }
 
 ty :
     atomicTy

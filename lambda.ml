@@ -388,21 +388,11 @@ let string_of_term term =
         | TmNil ty ->
             "nil[" ^ string_of_ty ty ^ "]"
         | TmIsNil (ty, t) ->
-            (match t with
-                TmCons (ty,t1,t2) -> internal false inner TmFalse
-              | TmNil ty -> internal false inner TmTrue
-              | _ -> raise (Type_error "[String_of error] argument of IsNil must be a list"))
+            "isnil[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmHead (ty, t) ->
-            print_endline (internal false inner t);
-            (match t with
-                TmCons (ty,t1,t2) -> internal false inner t1
-              | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
-              | _ -> raise (Type_error "[String_of error] argument of head must be a list"))
+            "head[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmTail (ty, t) ->
-            (match t with
-                TmCons (ty,t1,t2) -> internal false inner t2
-              | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
-              | _ -> raise (Type_error "[String_of error] argument of tail must be a list"))
+            "tail[" ^ string_of_ty ty ^ "] " ^ internal false inner t
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^

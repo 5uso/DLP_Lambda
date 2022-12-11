@@ -1,7 +1,7 @@
 
 {
   open Parser;;
-  exception Lexical_error;; 
+  exception Lexical_error of string;; 
 
   let strip_string_quotes str =
     match String.length str with
@@ -58,5 +58,5 @@ rule token = parse
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                     { STRINGV (Lexing.lexeme lexbuf) }
   | eof             { EOF }
-  | _               { raise Lexical_error } 
-
+  | [^' ' '\t' '\r' '\n']+
+                    { raise (Lexical_error ("unexpected '" ^ (Lexing.lexeme lexbuf) ^ "'")) } 

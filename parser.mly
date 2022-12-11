@@ -127,16 +127,24 @@ atomicTerm :
       { int_to_nat $1 }
   | STRING_VAL
       { TmStr $1 }
-  | LCURLY pairTerm RCURLY
-      { $2 }
+  | tupleTerm
+      { TmTuple $1 }
   | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
   | NIL LBRACKET ty RBRACKET
       { TmNil $3 }
 
-pairTerm :
-    term COMMA term
-        { TmPair ($1, $3) }
+tupleTerm :
+    LPAREN term COMMA RPAREN
+      { [$2] }
+  | LPAREN term tupleTermR RPAREN
+      { $2::(List.rev $3) }
+
+tupleTermR :
+    tupleTermR COMMA term
+      { $3::$1 }
+  | COMMA term
+      { [$2] }
 
 ty :
     atomicTy
@@ -145,7 +153,7 @@ ty :
       { TyArr ($1, $3) }
 
 atomicTy :
-    LPAREN ty RPAREN  
+    LPAREN ty RPAREN
       { $2 } 
   | BOOL
       { TyBool }
@@ -155,7 +163,19 @@ atomicTy :
       { TyUnit }
   | STRING
       { TyStr }
-  | LCURLY ty COMMA ty RCURLY
-      { TyPair ($2, $4) }
+  | tupleTy
+      { TyTuple $1 }
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
+
+tupleTy :
+    LPAREN ty COMMA RPAREN
+      { [$2] }
+  | LPAREN ty tupleTyR RPAREN
+      { $2::(List.rev $3) }
+
+tupleTyR :
+    tupleTyR COMMA ty
+      { $3::$1 }
+  | COMMA ty
+      { [$2] }

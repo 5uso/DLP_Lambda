@@ -7,7 +7,7 @@ type ty =
   | TyArr of ty * ty
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
-  | TyPair of ty * ty (* Pair type *)
+  | TyTuple of ty list (* Tuple type *)
   | TyList of ty (* List type *)
 ;;
 
@@ -31,7 +31,7 @@ type term =
   | TmFix of term (* Used for recursion *)
   | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
-  | TmPair of term * term (* Pair term *)
+  | TmTuple of term list (* Tuple term *)
   | TmAccess of term * int (* Nth component of a tuple *)
   | TmNil of ty (* Empty list term *)
   | TmCons of ty * term * term (* List cons term *)
@@ -94,8 +94,13 @@ let rec string_of_ty ty = match ty with
       )
   | TyStr ->
       "String"
-  | TyPair (ty1, ty2) ->
-      "{" ^ string_of_ty ty1 ^ ", " ^ string_of_ty ty2 ^ "}"
+  | TyTuple types ->
+      let rec tuple_str t acc =
+        match t with 
+            hd :: [] -> acc ^ (string_of_ty hd) ^ ")"
+          | hd :: tl -> tuple_str tl (acc ^ (string_of_ty hd) ^ ", ")
+          | [] -> acc ^ ")"
+      in tuple_str types "("
   | TyList t -> 
       "[" ^ string_of_ty t ^ "]"
 ;;
@@ -113,10 +118,16 @@ let rec is_subtype super ty = match super with
       (match ty with
           TyArr (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
         | _ -> false)
-  | TyPair(super1, super2) ->
+  | TyTuple types -> (* Tuples can be subtyped by smaller tuples that have the same starting types *)
       (match ty with
-          TyPair (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
-        | _ -> false)
+          TyTuple subtypes -> (
+            let rec tuple_sub sup sub =
+              match sup with
+                  [] -> (match sub with [] -> true | _ -> false)
+                | shd :: stl -> (match sub with hd :: tl when hd = shd -> true | _ -> false)
+            in tuple_sub types subtypes
+          )
+        | _ -> false) 
   | TyList super1 ->
       (match ty with
           TyList ty1 -> is_subtype super1 ty1
@@ -232,18 +243,27 @@ let rec typeof ctx tm = match tm with
   | TmStr _ ->
       TyStr
   
-    (* T-Pair *)
-  | TmPair (t1,t2) ->
-      let tyT1 = typeof ctx t1 in
-      let tyT2 = typeof ctx t2 in
-      TyPair (tyT1,tyT2)
+    (* T-Tuple *)
+  | TmTuple terms ->
+      let rec tuple_type t acc =
+        match t with
+            hd :: tl -> tuple_type tl ((typeof ctx hd)::acc)
+          | [] -> acc
+      in TyTuple (List.rev (tuple_type terms []))
 
     (* T-Access *)
-  | TmAccess (t,n) ->
+  | TmAccess (t, n) ->
       let t' = typeof ctx t in
       (match t' with
-          TyPair (tyT1,tyT2) -> (if n = 1 then tyT1 else tyT2)
-        | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
+          TyTuple types -> (
+            let rec access_type t i =
+              match t with
+                  hd :: tl -> if i = n then hd
+                  else access_type tl (i + 1)
+                | [] -> raise (Type_error "Tuple projection out of bounds")
+            in access_type types 1
+          )
+        | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
 
     (* T-Cons *)
   | TmCons (ty, t1, t2) ->
@@ -290,7 +310,7 @@ let term_precedence = function
   | TmZero
   | TmVar _
   | TmNil _ -> 0
-  | TmPair (_ ,_) -> 1
+  | TmTuple _ -> 1
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
@@ -379,8 +399,13 @@ let string_of_term term =
               internal true inner t1 ^
             "in" ^
               internal true inner t2
-        | TmPair (t1, t2) ->
-            "{" ^ internal false inner t1 ^ "," ^ internal false inner t2 ^ "}"
+        | TmTuple terms ->
+            let rec tuple_str t acc =
+              match t with 
+                  hd :: [] -> acc ^ (internal false inner hd) ^ ")"
+                | hd :: tl -> tuple_str tl (acc ^ (internal false inner hd) ^ ", ")
+                | [] -> acc ^ ")"
+            in tuple_str terms "("
         | TmAccess (t, n) ->
             internal false inner t ^ "." ^ string_of_int n
         | TmCons (ty, t1, t2) ->
@@ -450,8 +475,8 @@ let rec free_vars tm = match tm with
       free_vars t1
   | TmStr s ->
       [s]
-  | TmPair (t1,t2) -> 
-      lunion (free_vars t1) (free_vars t2)
+  | TmTuple terms -> 
+      List.fold_left lunion [] (List.map free_vars terms)
   | TmAccess (t, n) ->
       free_vars t
   | TmCons (ty, t1, t2) ->
@@ -520,8 +545,8 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t1)
   | TmStr s ->
       TmStr s
-  | TmPair (t1,t2) ->
-      TmPair (subst x s t1, subst x s t2)
+  | TmTuple terms ->
+      TmTuple (List.map (subst x s) terms)
   | TmAccess (t, n) ->
       TmAccess (subst x s t, n)
   | TmCons (ty, t1, t2) ->
@@ -548,7 +573,7 @@ let rec isval tm = match tm with
   | TmUnit  -> true
   | TmAbs _ -> true
   | TmStr _ -> true
-  | TmPair _ -> true
+  | TmTuple _ -> true
   | TmCons (_, _, _) -> true
   | TmNil _ -> true
   | t when isnumericval t -> true
@@ -672,9 +697,16 @@ let rec eval1 ctx tm = match tm with
       
     (* E-Access *)
   | TmAccess (t, n) ->
-      (match (try eval1 ctx t with NoRuleApplies -> t) with
-          TmPair (t1, t2) -> (if n = 1 then t1 else t2)
-        | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
+      (match t with
+          TmTuple terms -> (
+            let rec access_eval t i =
+              match t with
+                  hd :: tl -> if i = n then hd
+                  else access_eval tl (i + 1)
+                | [] -> raise (Type_error "Tuple projection out of bounds")
+            in access_eval terms 1
+          )
+        | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
   
     (* E-IsNil *)
   | TmIsNil (ty, t) ->

@@ -5,7 +5,7 @@ type ty =
 | TyArr of ty * ty
 | TyUnit (* Unit type *)
 | TyStr (* String type *)
-| TyPair of ty * ty (* Pair type *)
+| TyTuple of ty list (* Tuple type *)
 | TyList of ty (* List type *)
 ;;
 
@@ -29,7 +29,7 @@ type term =
 | TmFix of term (* Used for recursion *)
 | TmStr of string (* String term *)
 | TmUnit (* Unit term *)
-| TmPair of term * term (* Pair term *)
+| TmTuple of term list (* Tuple term *)
 | TmAccess of term * int (* Nth component of a tuple *)
 | TmNil of ty
 | TmCons of ty * term * term

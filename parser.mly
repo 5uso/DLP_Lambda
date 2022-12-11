@@ -101,6 +101,12 @@ appTerm :
       { TmReadNat $2 }
   | READ_STRING atomicTerm
       { TmReadString $2 }
+  | HEAD LBRACKET ty RBRACKET atomicTerm
+      { TmHead ($3, $5) }
+  | TAIL LBRACKET ty RBRACKET atomicTerm
+      { TmTail ($3, $5) }
+  | ISNIL LBRACKET ty RBRACKET atomicTerm
+      { TmIsNil ($3, $5) }
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
   | appTerm atomicTerm
@@ -127,12 +133,6 @@ atomicTerm :
       { TmCons ($3, $5, $6) }
   | NIL LBRACKET ty RBRACKET
       { TmNil $3 }
-  | HEAD LBRACKET ty RBRACKET atomicTerm
-      { TmHead ($3, $5) }
-  | TAIL LBRACKET ty RBRACKET atomicTerm
-      { TmTail ($3, $5) }
-  | ISNIL LBRACKET ty RBRACKET atomicTerm
-      { TmIsNil ($3, $5) }
 
 pairTerm :
   | term COMMA term

@@ -285,11 +285,11 @@ let rec typeof ctx tm = match tm with
 
 let term_precedence = function
     TmUnit
-    | TmTrue
-    | TmFalse
-    | TmZero
-  | TmVar _ -> 0
-  | TmIsNil (_, _) -> 1
+  | TmTrue
+  | TmFalse
+  | TmZero
+  | TmVar _
+  | TmNil _ -> 0
   | TmPair (_ ,_) -> 1
   | TmSucc t ->
       let rec f n t' = match t' with
@@ -307,9 +307,9 @@ let term_precedence = function
   | TmAccess (_, _)
   | TmHead (_, _)
   | TmTail (_, _)
+  | TmIsNil (_, _)
   | TmReadString _ -> 2
-  | TmCons (_, _, _) -> 1
-  | TmNil _ -> 1
+  | TmCons (_, _, _) -> 2
   | TmIf (_, _, _) -> 3
   | TmAbs (_, _, _) -> 4
   | TmFix _ -> 5

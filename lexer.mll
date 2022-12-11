@@ -27,6 +27,11 @@ rule token = parse
   | "print_newline" { PRINT_NEWLINE }
   | "read_nat"      { READ_NAT }
   | "read_string"   { READ_STRING }
+  | "cons"          { CONS } (* List constructor *)
+  | "nil"           { NIL } (* Empty list *)
+  | "head"          { HEAD } (* List head *)
+  | "tail"          { TAIL } (* List tail *)
+  | "isnil"         { ISNIL } (* List is empty *)
   | "let"           { LET }
   | "letrec"        { LETREC } (* Used for recursion *)
   | "in"            { IN }
@@ -35,11 +40,6 @@ rule token = parse
   | "Unit"          { UNIT } (* Unit type *)
   | "String"        { STRING } (* String type *)
   | "List"          { LIST } (* List type *)
-  | "cons"         { CONS } (* Const type for lists *)
-  | "nil"           { NIL } (* Empty list *)
-  | "head"          { HEAD } (* List head *)
-  | "tail"          { TAIL } (* List tail *)
-  | "isnil"         { ISNIL } (* List is empty *)
   | '('             { LPAREN }
   | ')'             { RPAREN }
   | '.'             { DOT }

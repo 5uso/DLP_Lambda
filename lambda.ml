@@ -241,16 +241,17 @@ let rec typeof ctx tm = match tm with
     (* T-Access *)
   | TmAccess (t,n) ->
       let t' = typeof ctx t in
-      (match t' with TyPair (tyT1,tyT2) -> (if n = 1 then tyT1 else tyT2)
-      | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
+      (match t' with
+          TyPair (tyT1,tyT2) -> (if n = 1 then tyT1 else tyT2)
+        | _ -> raise (Type_error ("Can only access " ^ (string_of_int n) ^ "th element of a pair")))
 
     (* T-Cons *)
   | TmCons (ty, t1, t2) ->
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
-        (match (ty, tyT1, tyT2) with
-          (tyT1', tyT2', TyList tyT3') 
-            when tyT1' = tyT2' && tyT1' = tyT3' -> TyList tyT1'
+      (match (ty, tyT1, tyT2) with
+          (tyT1', tyT2', TyList tyT3') when tyT1' = tyT2' && tyT1' = tyT3' -> 
+            TyList tyT1'
         | (_, _, _) -> raise (Type_error "Type mismatch in cons"))
 
     (* T-Nil *)
@@ -261,22 +262,22 @@ let rec typeof ctx tm = match tm with
   | TmIsNil (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-        TyList _ -> TyBool
-      | _ -> raise (Type_error "Argument of is_nil must be a list"))
+          TyList _ -> TyBool
+        | _ -> raise (Type_error "Argument of is_nil must be a list"))
       
     (* T-Head *)
   | TmHead (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-        TyList ty -> ty
-      | _ -> raise (Type_error "Argument of head must be a list"))
+          TyList ty -> ty
+        | _ -> raise (Type_error "Argument of head must be a list"))
     
     (* T-Tail *)
   | TmTail (ty, t) ->
       let tyT = typeof ctx t in
       (match tyT with
-        TyList ty -> tyT
-      | _ -> raise (Type_error "Argument of tail must be a list"))
+          TyList ty -> tyT
+        | _ -> raise (Type_error "Argument of tail must be a list"))
 ;;
       
 
@@ -387,21 +388,21 @@ let string_of_term term =
         | TmNil ty ->
             "nil[" ^ string_of_ty ty ^ "]"
         | TmIsNil (ty, t) ->
-          (match t with
-            TmCons (ty,t1,t2) -> internal false inner TmFalse
-          | TmNil ty -> internal false inner TmTrue
-          | _ -> raise (Type_error "[String_of error] argument of IsNil must be a list"))
+            (match t with
+                TmCons (ty,t1,t2) -> internal false inner TmFalse
+              | TmNil ty -> internal false inner TmTrue
+              | _ -> raise (Type_error "[String_of error] argument of IsNil must be a list"))
         | TmHead (ty, t) ->
-          print_endline (internal false inner t);
-          (match t with
-            TmCons (ty,t1,t2) -> internal false inner t1
-          | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
-          | _ -> raise (Type_error "[String_of error] argument of head must be a list"))
+            print_endline (internal false inner t);
+            (match t with
+                TmCons (ty,t1,t2) -> internal false inner t1
+              | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
+              | _ -> raise (Type_error "[String_of error] argument of head must be a list"))
         | TmTail (ty, t) ->
-          (match t with
-            TmCons (ty,t1,t2) -> internal false inner t2
-          | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
-          | _ -> raise (Type_error "[String_of error] argument of tail must be a list"))
+            (match t with
+                TmCons (ty,t1,t2) -> internal false inner t2
+              | TmNil ty -> "nil[" ^ string_of_ty ty ^ "]"
+              | _ -> raise (Type_error "[String_of error] argument of tail must be a list"))
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^

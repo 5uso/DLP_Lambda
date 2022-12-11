@@ -309,6 +309,7 @@ let term_precedence = function
   | TmFalse
   | TmZero
   | TmVar _
+  | TmStr _
   | TmNil _ -> 0
   | TmTuple _ -> 1
   | TmSucc t ->
@@ -322,7 +323,6 @@ let term_precedence = function
   | TmPrintNat _
   | TmPrintString _
   | TmPrintNewline _
-  | TmStr _
   | TmReadNat _
   | TmAccess (_, _)
   | TmHead (_, _)

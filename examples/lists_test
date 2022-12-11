@@ -10,9 +10,3 @@ letrec sum : Nat -> Nat -> Nat =
      in
        length (cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat])))
      ;;
-
-letrec length : List[Nat] -> Nat =
-       lambda l : List[Nat]. if isnil[Nat] l then 0 else succ 1)
-     in
-       length (cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat])))
-     ;;

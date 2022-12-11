@@ -101,13 +101,13 @@ appTerm :
       { TmReadNat $2 }
   | READ_STRING atomicTerm
       { TmReadString $2 }
-  | HEAD LBRACKET ty RBRACKET atomicTerm
+  | HEAD LBRACKET ty RBRACKET appTerm
       { TmHead ($3, $5) }
-  | TAIL LBRACKET ty RBRACKET atomicTerm
+  | TAIL LBRACKET ty RBRACKET appTerm
       { TmTail ($3, $5) }
-  | ISNIL LBRACKET ty RBRACKET atomicTerm
+  | ISNIL LBRACKET ty RBRACKET appTerm
       { TmIsNil ($3, $5) }
-  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
+  | CONS LBRACKET ty RBRACKET appTerm appTerm
       { TmCons ($3, $5, $6) }
   | NIL LBRACKET ty RBRACKET
       { TmNil $3 }

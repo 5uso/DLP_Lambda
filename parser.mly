@@ -129,6 +129,8 @@ atomicTerm :
       { TmStr $1 }
   | tupleTerm
       { TmTuple $1 }
+  | recordTerm
+      { TmRecord $1 }
   | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
   | NIL LBRACKET ty RBRACKET
@@ -145,6 +147,22 @@ tupleTermR :
       { $3::$1 }
   | COMMA term
       { [$2] }
+
+recordTerm :
+    LCURLY recordTermEntry RCURLY
+      { [$2] }
+  | LCURLY recordTermEntry recordTermR RCURLY
+      { $2::(List.rev $3) }
+
+recordTermR :
+    recordTermR COMMA recordTermEntry
+      { $3::$1 }
+  | COMMA recordTermEntry
+      { [$2] }
+
+recordTermEntry :
+    STRINGV COLON term
+      { ($1, $3) }
 
 ty :
     atomicTy
@@ -165,6 +183,8 @@ atomicTy :
       { TyStr }
   | tupleTy
       { TyTuple $1 }
+  | recordTy
+      { TyRecord $1 }
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
 
@@ -179,3 +199,19 @@ tupleTyR :
       { $3::$1 }
   | COMMA ty
       { [$2] }
+
+recordTy :
+    LCURLY recordTyEntry RCURLY
+      { [$2] }
+  | LCURLY recordTyEntry recordTyR RCURLY
+      { $2::(List.rev $3) }
+
+recordTyR :
+    recordTyR COMMA recordTyEntry
+      { $3::$1 }
+  | COMMA recordTyEntry
+      { [$2] }
+
+recordTyEntry :
+    STRINGV COLON ty
+      { ($1, $3) }

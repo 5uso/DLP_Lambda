@@ -6,6 +6,7 @@ type ty =
 | TyUnit (* Unit type *)
 | TyStr (* String type *)
 | TyTuple of ty list (* Tuple type *)
+| TyRecord of (string * ty) list (* Record type *)
 | TyList of ty (* List type *)
 ;;
 
@@ -30,7 +31,9 @@ type term =
 | TmStr of string (* String term *)
 | TmUnit (* Unit term *)
 | TmTuple of term list (* Tuple term *)
+| TmRecord of (string * term) list (* Record term *)
 | TmAccess of term * int (* Nth component of a tuple *)
+| TmAccessNamed of term * string (* Named component of a record *)
 | TmNil of ty
 | TmCons of ty * term * term
 | TmIsNil of ty * term

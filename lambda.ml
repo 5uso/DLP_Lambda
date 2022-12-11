@@ -8,6 +8,7 @@ type ty =
   | TyUnit (* Unit type *)
   | TyStr (* String type *)
   | TyTuple of ty list (* Tuple type *)
+  | TyRecord of (string * ty) list (* Record type *)
   | TyList of ty (* List type *)
 ;;
 
@@ -32,7 +33,9 @@ type term =
   | TmStr of string (* String term *)
   | TmUnit (* Unit term *)
   | TmTuple of term list (* Tuple term *)
+  | TmRecord of (string * term) list (* Record term *)
   | TmAccess of term * int (* Nth component of a tuple *)
+  | TmAccessNamed of term * string (* Named component of a record *)
   | TmNil of ty (* Empty list term *)
   | TmCons of ty * term * term (* List cons term *)
   | TmIsNil of ty * term (* Is list empty *)
@@ -101,6 +104,13 @@ let rec string_of_ty ty = match ty with
           | hd :: tl -> tuple_str tl (acc ^ (string_of_ty hd) ^ ", ")
           | [] -> acc ^ ")"
       in tuple_str types "("
+  | TyRecord entries ->
+      let rec record_str t acc =
+        match t with
+            (name, rty) :: [] -> acc ^ name ^ ": " ^ (string_of_ty rty) ^ "}"
+          | (name, rty) :: tl -> record_str tl (acc ^ name ^ ": " ^ (string_of_ty rty) ^ ", ")
+          | [] -> acc ^ "}"
+      in record_str entries "{"
   | TyList t -> 
       "[" ^ string_of_ty t ^ "]"
 ;;
@@ -128,6 +138,11 @@ let rec is_subtype super ty = match super with
             in tuple_sub types subtypes
           )
         | _ -> false) 
+  | TyRecord entries -> (* Records can be subtyped if all named entries of the super appear in the sub with the same type *)
+      (match ty with
+          TyRecord subentries ->
+            List.fold_left (&&) true (List.rev_map (function x -> List.exists ((=) x) subentries) entries)
+        | _ -> false)
   | TyList super1 ->
       (match ty with
           TyList ty1 -> is_subtype super1 ty1
@@ -251,6 +266,14 @@ let rec typeof ctx tm = match tm with
           | [] -> acc
       in TyTuple (List.rev (tuple_type terms []))
 
+    (* T-Record *)
+  | TmRecord entries ->
+      let rec record_type t acc =
+        match t with
+            (name, rt) :: tl -> record_type tl ((name, (typeof ctx rt))::acc)
+          | [] -> acc
+      in TyRecord (record_type entries [])
+
     (* T-Access *)
   | TmAccess (t, n) ->
       let t' = typeof ctx t in
@@ -264,6 +287,19 @@ let rec typeof ctx tm = match tm with
             in access_type types 1
           )
         | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
+
+    (* T-AccessNamed *)
+  | TmAccessNamed (t, n) ->
+      let t' = typeof ctx t in
+      (match t' with
+          TyRecord entries -> (
+            let rec access_named_type t =
+              match t with
+                  (name, rty) :: tl -> if name = n then rty else access_named_type tl
+                | [] -> raise (Type_error "Record projection didn't match")
+            in access_named_type entries
+          )
+        | _ -> raise (Type_error "Can only apply named projection to a record"))
 
     (* T-Cons *)
   | TmCons (ty, t1, t2) ->
@@ -311,7 +347,8 @@ let term_precedence = function
   | TmVar _
   | TmStr _
   | TmNil _ -> 0
-  | TmTuple _ -> 1
+  | TmTuple _
+  | TmRecord _ -> 1
   | TmSucc t ->
       let rec f n t' = match t' with
           TmZero -> 0
@@ -325,6 +362,7 @@ let term_precedence = function
   | TmPrintNewline _
   | TmReadNat _
   | TmAccess (_, _)
+  | TmAccessNamed (_, _)
   | TmHead (_, _)
   | TmTail (_, _)
   | TmIsNil (_, _)
@@ -406,8 +444,17 @@ let string_of_term term =
                 | hd :: tl -> tuple_str tl (acc ^ (internal false inner hd) ^ ", ")
                 | [] -> acc ^ ")"
             in tuple_str terms "("
+        | TmRecord entries ->
+            let rec record_str t acc =
+              match t with
+                  (name, rt) :: [] -> acc ^ name ^ ": " ^ (internal false inner rt) ^ "}"
+                | (name, rt) :: tl -> record_str tl (acc ^ name ^ ": " ^ (internal false inner rt) ^ ", ")
+                | [] -> acc ^ "}"
+            in record_str entries "{"
         | TmAccess (t, n) ->
             internal false inner t ^ "." ^ string_of_int n
+        | TmAccessNamed (t, n) ->
+            internal false inner t ^ "." ^ n
         | TmCons (ty, t1, t2) ->
             "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
         | TmNil ty ->
@@ -476,8 +523,12 @@ let rec free_vars tm = match tm with
   | TmStr s ->
       [s]
   | TmTuple terms -> 
-      List.fold_left lunion [] (List.map free_vars terms)
+      List.fold_left lunion [] (List.rev_map free_vars terms)
+  | TmRecord entries ->
+      List.fold_left lunion [] (List.rev_map (function (_, x) -> free_vars x) entries)
   | TmAccess (t, n) ->
+      free_vars t
+  | TmAccessNamed (t, n) ->
       free_vars t
   | TmCons (ty, t1, t2) ->
       lunion (free_vars t1) (free_vars t2)
@@ -547,8 +598,12 @@ let rec subst x s tm = match tm with
       TmStr s
   | TmTuple terms ->
       TmTuple (List.map (subst x s) terms)
+  | TmRecord entries ->
+      TmRecord (List.map (function (n, t) -> (n, subst x s t)) entries)
   | TmAccess (t, n) ->
       TmAccess (subst x s t, n)
+  | TmAccessNamed (t, n) ->
+      TmAccessNamed (subst x s t, n)
   | TmCons (ty, t1, t2) ->
       TmCons (ty, subst x s t1, subst x s t2)
   | TmNil ty ->
@@ -701,13 +756,24 @@ let rec eval1 ctx tm = match tm with
           TmTuple terms -> (
             let rec access_eval t i =
               match t with
-                  hd :: tl -> if i = n then hd
-                  else access_eval tl (i + 1)
+                  hd :: tl -> if i = n then hd else access_eval tl (i + 1)
                 | [] -> raise (Type_error "Tuple projection out of bounds")
             in access_eval terms 1
           )
         | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
   
+    (* E-AccessNamed *)
+  | TmAccessNamed (t, n) ->
+      (match t with
+          TmRecord entries -> (
+            let rec access_named_eval t =
+              match t with
+                  (name, rt) :: tl -> if name = n then rt else access_named_eval tl
+                | [] -> raise (Type_error "Record projection didn't match")
+            in access_named_eval entries
+          )
+        | _ -> raise (Type_error "Can only apply named projection to a record"))
+
     (* E-IsNil *)
   | TmIsNil (ty, t) ->
       (match t with

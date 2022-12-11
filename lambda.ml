@@ -766,7 +766,7 @@ let rec eval1 ctx tm = match tm with
       
     (* E-Access *)
   | TmAccess (t, n) ->
-      (match t with
+      (match (try eval1 ctx t with NoRuleApplies -> t) with
           TmTuple terms -> (
             let rec access_eval t i =
               match t with
@@ -778,7 +778,7 @@ let rec eval1 ctx tm = match tm with
   
     (* E-AccessNamed *)
   | TmAccessNamed (t, n) ->
-      (match t with
+      (match (try eval1 ctx t with NoRuleApplies -> t) with
           TmRecord entries -> (
             let rec access_named_eval t =
               match t with
@@ -790,20 +790,20 @@ let rec eval1 ctx tm = match tm with
 
     (* E-IsNil *)
   | TmIsNil (ty, t) ->
-      (match t with
+      (match (try eval1 ctx t with NoRuleApplies -> t) with
           TmNil _ -> TmTrue
         | _ -> TmFalse)
 
     (* E-Head *)
   | TmHead (ty, t) ->
-      (match t with
+      (match (try eval1 ctx t with NoRuleApplies -> t) with
           TmCons (lty, t1, t2) -> t1
         | TmNil lty -> raise (Type_error ("Can't get head of Nil"))
         | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 
-    (* E-Head *)
+    (* E-Tail *)
   | TmTail (ty, t) ->
-      (match t with
+      (match (try eval1 ctx t with NoRuleApplies -> t) with
           TmCons (lty, t1, t2) -> t2
         | TmNil lty -> TmNil lty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))

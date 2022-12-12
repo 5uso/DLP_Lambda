@@ -81,7 +81,7 @@ term :
       { TmLetIn ($2, $4, $6) }                         %prec BEFORE_SCOLON;
   | LETREC STRINGV COLON ty EQ term IN term
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) } %prec BEFORE_SCOLON;
-  | term SCOLON term
+  | term SCOLON term    // matches 
       { TmApp (TmAbs (fresh_name "x" (free_vars [] $3), TyUnit, $3), $1) }
 
 appTerm :
@@ -135,7 +135,6 @@ atomicTerm :
       { int_to_nat $1 }
   | STRING_VAL
       { TmStr $1 }
-
   | tupleTerm
       { TmTuple $1 }
   | recordTerm
@@ -145,29 +144,36 @@ atomicTerm :
   | listAlt
       { list_to_cons $1 }
 
+// Tuple term to allow multiple terms inside a tuple with tupleTermR
 tupleTerm :
+    // Tuples of 1 element are in the form (x,) as in python
     LPAREN term COMMA RPAREN
       { [$2] }
-  | LPAREN term tupleTermR RPAREN
-      { $2::(List.rev $3) }
+  | LPAREN tupleTermR RPAREN
+      { $2 }
 
 tupleTermR :
-    tupleTermR COMMA term
-      { $3::$1 }
-  | COMMA term
-      { [$2] }
+    // n-tuples
+    term COMMA tupleTermR
+      { $1::$3 }
+  | term
+      { [$1] }
 
 recordTerm :
+    // 1 element records
     LCURLY recordTermEntry RCURLY
       { [$2] }
-  | LCURLY recordTermEntry recordTermR RCURLY
-      { $2::(List.rev $3) }
+  | LCURLY recordTermR RCURLY
+    // Reverted because when displaying the tuple as a string (string_of_term)
+    // The contents are reverted. This does not affect the functionality
+      { List.rev $2 }
 
 recordTermR :
-    recordTermR COMMA recordTermEntry
-      { $3::$1 }
-  | COMMA recordTermEntry
-      { [$2] }
+    // n-elements record
+    recordTermEntry COMMA recordTermR
+      { $1::$3 }
+  | recordTermEntry
+      { [$1] }
 
 recordTermEntry :
     STRINGV COLON term
@@ -194,6 +200,7 @@ atomicTy :
       { TyTuple $1 }
   | recordTy
       { TyRecord $1 }
+    //   Lists are typed, e.g. List[Nat]
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
 
@@ -213,6 +220,7 @@ recordTy :
     LCURLY recordTyEntry RCURLY
       { [$2] }
   | LCURLY recordTyEntry recordTyR RCURLY
+    // List needs to be reversed as appending works like a stack 
       { $2::(List.rev $3) }
 
 recordTyR :
@@ -221,6 +229,8 @@ recordTyR :
   | COMMA recordTyEntry
       { [$2] }
 
+//  Record entries are "field_name: field_value" 
+// and get the typing of the value for each corresponding key
 recordTyEntry :
     STRINGV COLON ty
       { ($1, $3) }
@@ -229,6 +239,8 @@ listAlt :
     ty LBRACKET listAltR RBRACKET
       { ($1, $3) }
 
+// Alternative way of creating lists with "Type [...]"
+// e.g: Nat [1,2,3];;
 listAltR :
     term
       { [$1] }

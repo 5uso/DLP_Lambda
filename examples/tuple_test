@@ -8,3 +8,5 @@ z = (1, "string", 314);;
 z.1;;
 z.2;;
 z.3;;
+y.1 ^ z.2;;
+letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in sum (z.3) (y.2);;

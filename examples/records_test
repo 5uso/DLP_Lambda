@@ -1,0 +1,5 @@
+x = {f1: 1, f2: "str ", f3: (), f4: 9, f5: true};;
+if x.f5 
+then print_string "true"
+else "false";;
+x.f2 ^ x.f2;;

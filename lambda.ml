@@ -108,14 +108,17 @@ let rec string_of_ty ty = match ty with
       )
   | TyStr ->
       "String"
+  (* Print types as (type1, type2, ...) *)
   | TyTuple types ->
       let len = List.length types in
+      (*  *)
       let rec tuple_str t acc =
         match t with 
             hd :: [] -> acc ^ (string_of_ty hd) ^ (if len > 1 then ")" else ",)")
           | hd :: tl -> tuple_str tl (acc ^ (string_of_ty hd) ^ ", ")
           | [] -> acc ^ (if len > 1 then ")" else ",)")
       in tuple_str types "("
+  (* Print records type in the format "field_name: field_type" *)
   | TyRecord entries ->
       let rec record_str t acc =
         match t with
@@ -305,6 +308,7 @@ let rec typeof ctx tm = match tm with
       let t' = typeof ctx t in
       (match t' with
           TyRecord entries -> (
+            (* Iterate over the internal list looking for the value accessed and return it's type *)
             let rec access_named_type t =
               match t with
                   (name, rty) :: tl -> if name = n then rty else access_named_type tl
@@ -318,6 +322,8 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
       (match tyT2 with
+      (* Both elements of the constructor must be of the same type (as the second is a cons aswell it leads to recursive type evaluation), 
+      for all the elements in the list to be of the same type *)
           TyList lty when is_subtype ty tyT1 && is_subtype ty lty -> TyList ty
         | _ -> raise (Type_error "Type mismatch in cons"))
 
@@ -486,6 +492,8 @@ let string_of_term term =
         | TmTail (ty, t) ->
             "tail[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmConcat (t1, t2) -> 
+          (* This is done because 2 strings concatenated stack their quotes when 
+             string_of_ty is called. So their quotes need to be stripped and added at the end*)
           let strip_string_quotes str =
             match String.length str with
               0 | 1 | 2 -> ""
@@ -552,6 +560,7 @@ let free_vars ctx tm =
     | TmStr s ->
         [s]
     | TmTuple terms -> 
+        (* Gather free_vars from all the elements in the internal list *)
         List.fold_left lunion [] (List.rev_map free_vars terms)
     | TmRecord entries ->
         List.fold_left lunion [] (List.rev_map (function (_, x) -> free_vars x) entries)
@@ -829,8 +838,10 @@ let rec eval1 ctx tm = match tm with
           TmCons (lty, t1, t2) -> t2
         | TmNil lty -> TmNil lty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
-
+  
+    (* E-Concat *)
   | TmConcat (t1, t2) ->
+    (* Evaluate each part individually *)
     let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
     let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
       (match (t1', t2') with

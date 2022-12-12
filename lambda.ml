@@ -41,6 +41,7 @@ type term =
   | TmIsNil of ty * term (* Is list empty *)
   | TmHead of ty * term (* Head of list *)
   | TmTail of ty * term (* Tail of list *)
+  | TmConcat of term * term (* Concatenation term for strings *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -344,6 +345,13 @@ let rec typeof ctx tm = match tm with
       (match tyT with
           TyList lty when is_subtype ty lty -> TyList ty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+
+  | TmConcat (t1, t2) -> 
+      let tyT1 = typeof ctx t1 in 
+      let tyT2 = typeof ctx t2 in 
+      (match (tyT1, tyT2) with 
+          (TyStr, TyStr) -> TyStr
+        | _ -> raise (Type_error ("[typeof] Concatenation operator can only be applied to strings")))
 ;;
       
 
@@ -376,6 +384,7 @@ let term_precedence = function
   | TmHead (_, _)
   | TmTail (_, _)
   | TmIsNil (_, _)
+  | TmConcat (_, _)
   | TmReadString _ -> 2
   | TmCons (_, _, _) -> 2
   | TmIf (_, _, _) -> 3
@@ -476,6 +485,14 @@ let string_of_term term =
             "head[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmTail (ty, t) ->
             "tail[" ^ string_of_ty ty ^ "] " ^ internal false inner t
+        | TmConcat (t1, t2) -> 
+          let strip_string_quotes str =
+            match String.length str with
+              0 | 1 | 2 -> ""
+            | len -> String.sub str 1 (len - 2) in 
+          let str1 = strip_string_quotes (internal false inner t1) in 
+          let str2 = strip_string_quotes (internal false inner t2) in 
+          "\"" ^ str1 ^ str2 ^ "\""
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -552,6 +569,8 @@ let free_vars ctx tm =
         free_vars t
     | TmTail (ty, t) ->
         free_vars t
+    | TmConcat (t1, t2) -> 
+        lunion (free_vars t1) (free_vars t2) 
   in lunion (free_vars tm) (List.map (function (s, _, _) -> s) ctx)
 ;;
 
@@ -627,6 +646,8 @@ let rec subst ctx x s tm = match tm with
       TmHead (ty, subst ctx x s t)
   | TmTail (ty, t) ->
       TmTail (ty, subst ctx x s t)
+  | TmConcat (t1, t2) -> 
+      TmConcat (subst ctx x s t1, subst ctx x s t2)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -646,6 +667,7 @@ let rec isval tm = match tm with
   | TmCons (_, _, _) -> true
   | TmNil _ -> true
   | t when isnumericval t -> true
+  | TmConcat (_ ,_) -> true
   | _ -> false
 ;;
 
@@ -807,6 +829,13 @@ let rec eval1 ctx tm = match tm with
           TmCons (lty, t1, t2) -> t2
         | TmNil lty -> TmNil lty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
+
+  | TmConcat (t1, t2) ->
+    let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
+    let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
+      (match (t1', t2') with
+        (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
+      | _ -> raise (Type_error ("[eval1] Concatenation operator can only be applied to strings")))
 
   | _ ->
       raise NoRuleApplies

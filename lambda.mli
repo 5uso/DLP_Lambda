@@ -34,11 +34,12 @@ type term =
 | TmRecord of (string * term) list (* Record term *)
 | TmAccess of term * int (* Nth component of a tuple *)
 | TmAccessNamed of term * string (* Named component of a record *)
-| TmNil of ty
-| TmCons of ty * term * term
-| TmIsNil of ty * term
-| TmHead of ty * term
-| TmTail of ty * term
+| TmNil of ty (* Nil constructor for lists, indicates the last component *)
+| TmCons of ty * term * term (* Constructor for lists *)
+| TmIsNil of ty * term (* Check if list component is nil *)
+| TmHead of ty * term (* Term to get the head of a list *)
+| TmTail of ty * term (* Term to get the tail of a list *)
+| TmConcat of term * term (* Concatenation term for strings *)
 ;;
 
 (* Context now keeps track of values as well as types *)

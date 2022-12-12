@@ -24,7 +24,9 @@
 %token BOOL
 %token NAT
 %token UNIT              //Unit type
+
 %token STRING            //String type
+%token CONCAT            //String oncatenation operator
 
 %token LPAREN
 %token RPAREN
@@ -109,6 +111,8 @@ appTerm :
       { TmIsNil ($3, $5) }
   | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
+  | appTerm CONCAT appTerm
+      { TmConcat ($1, $3) }
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
   | atomicTerm DOT STRINGV
@@ -131,6 +135,7 @@ atomicTerm :
       { int_to_nat $1 }
   | STRING_VAL
       { TmStr $1 }
+
   | tupleTerm
       { TmTuple $1 }
   | recordTerm

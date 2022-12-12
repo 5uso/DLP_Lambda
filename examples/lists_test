@@ -1,4 +1,6 @@
 x = cons[Nat] 7 (cons[Nat] 8 nil[Nat]);;
+head[Nat] x;;
+tail[Nat] x;;
 
 let isnilnat = L x:List[Nat]. if (isnil[Nat] x) then 0 else 1 in isnilnat (cons[Nat] 8 nil[Nat]);;
 

@@ -676,7 +676,6 @@ let rec isval tm = match tm with
   | TmCons (_, _, _) -> true
   | TmNil _ -> true
   | t when isnumericval t -> true
-  | TmConcat (_ ,_) -> true
   | _ -> false
 ;;
 

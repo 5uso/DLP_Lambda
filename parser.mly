@@ -113,10 +113,6 @@ appTerm :
       { TmCons ($3, $5, $6) }
   | atomicTerm CONCAT atomicTerm
       { TmConcat ($1, $3) }
-  | atomicTerm DOT INTV
-      { TmAccess ($1, $3) }
-  | atomicTerm DOT STRINGV
-      { TmAccessNamed ($1, $3) }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
 
@@ -143,6 +139,10 @@ atomicTerm :
       { TmNil $3 }
   | listAlt
       { list_to_cons $1 }
+  | atomicTerm DOT INTV
+      { TmAccess ($1, $3) }
+  | atomicTerm DOT STRINGV
+      { TmAccessNamed ($1, $3) }
 
 // Tuple term to allow multiple terms inside a tuple with tupleTermR
 tupleTerm :

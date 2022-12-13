@@ -371,6 +371,8 @@ let term_precedence = function
   | TmVar _
   | TmStr _
   | TmNil _ -> 0
+  | TmAccess (_, _)
+  | TmAccessNamed (_, _)
   | TmTuple _
   | TmRecord _ -> 1
   | TmSucc t ->
@@ -385,8 +387,6 @@ let term_precedence = function
   | TmPrintString _
   | TmPrintNewline _
   | TmReadNat _
-  | TmAccess (_, _)
-  | TmAccessNamed (_, _)
   | TmHead (_, _)
   | TmTail (_, _)
   | TmIsNil (_, _)
@@ -478,9 +478,9 @@ let string_of_term term =
                 | [] -> acc ^ "}"
             in record_str entries "{"
         | TmAccess (t, n) ->
-            internal false inner t ^ "." ^ string_of_int n
+            internal false (inner + 1) t ^ "." ^ string_of_int n
         | TmAccessNamed (t, n) ->
-            internal false inner t ^ "." ^ n
+            internal false (inner + 1) t ^ "." ^ n
         | TmCons (ty, t1, t2) ->
             "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
         | TmNil ty ->

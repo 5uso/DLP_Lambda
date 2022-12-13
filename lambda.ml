@@ -492,15 +492,7 @@ let string_of_term term =
         | TmTail (ty, t) ->
             "tail[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmConcat (t1, t2) -> 
-          (* This is done because 2 strings concatenated stack their quotes when 
-             string_of_ty is called. So their quotes need to be stripped and added at the end*)
-          let strip_string_quotes str =
-            match String.length str with
-              0 | 1 | 2 -> ""
-            | len -> String.sub str 1 (len - 2) in 
-          let str1 = strip_string_quotes (internal false inner t1) in 
-          let str2 = strip_string_quotes (internal false inner t2) in 
-          "\"" ^ str1 ^ str2 ^ "\""
+            (internal false inner t1) ^ " ^ " ^ (internal false inner t2)
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^

@@ -730,15 +730,15 @@ let rec eval1 ctx tm = match tm with
 
     (* E-PrintNat *)
   | TmPrintNat t1 ->
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
       print_string (string_of_term t1);
       TmUnit
 
     (* E-PrintString *)
   | TmPrintString t1 ->
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
       print_string (match t1 with TmStr s -> s
-                    | _ -> raise (Type_error "argument of print_string is not a string"));
+                    | _ -> raise (Type_error "eval argument of print_string is not a string"));
       TmUnit
 
     (* E-PrintNewline *)

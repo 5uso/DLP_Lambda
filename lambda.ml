@@ -148,8 +148,8 @@ let rec is_subtype super ty = match super with
           TyTuple subtypes -> (
             let rec tuple_sub sup sub =
               match sup with
-                  [] -> (match sub with [] -> true | _ -> false)
-                | shd :: stl -> (match sub with hd :: tl when hd = shd -> true | _ -> false)
+                  [] -> true
+                | shd :: stl -> (match sub with hd :: tl when hd = shd -> (tuple_sub stl tl) | _ -> false)
             in tuple_sub types subtypes
           )
         | _ -> false) 

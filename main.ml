@@ -7,6 +7,7 @@ open Parser;;
 open Lexer;;
 open List;;
 
+(* Reads lines until it finds the end of line indicator ;; *)
 let read_multiline () = 
   let is_end s1 =
     let exp = (Str.regexp_string ";;") in
@@ -26,10 +27,10 @@ let top_level_loop () =
     try
       (* Get and run a command *)
       let c = s token (from_string (read_multiline ())) in
-      let ctx = run_cmd ctx c in
+      let ctx = run_cmd ctx c in (* Commands may update the global context *)
       loop ctx
     with
-       Lexical_error e ->
+       Lexical_error e -> (* For clarity, lexer errors display the unexpected input *)
          print_endline ("lexical error: " ^ e);
          loop ctx
      | Parse_error ->
@@ -41,7 +42,7 @@ let top_level_loop () =
      | End_of_file ->
          print_endline "...bye!!!"
   in
-    loop emptyctx
+    loop emptyctx (* Start with empty context *)
   ;;
 
 top_level_loop ()

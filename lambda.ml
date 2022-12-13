@@ -840,12 +840,12 @@ let rec eval1 ctx tm = match tm with
   
     (* E-Concat *)
   | TmConcat (t1, t2) ->
-    (* Evaluate each part individually *)
-    let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
-    let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
+      (* Evaluate each part individually *)
+      let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
+      let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
       (match (t1', t2') with
-        (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
-      | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
+          (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
+        | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
 
   | _ ->
       raise NoRuleApplies

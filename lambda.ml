@@ -357,7 +357,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in 
       (match (tyT1, tyT2) with 
           (TyStr, TyStr) -> TyStr
-        | _ -> raise (Type_error ("[typeof] Concatenation operator can only be applied to strings")))
+        | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
 ;;
       
 
@@ -371,6 +371,8 @@ let term_precedence = function
   | TmVar _
   | TmStr _
   | TmNil _ -> 0
+  | TmAccess (_, _)
+  | TmAccessNamed (_, _)
   | TmTuple _
   | TmRecord _ -> 1
   | TmSucc t ->
@@ -385,8 +387,6 @@ let term_precedence = function
   | TmPrintString _
   | TmPrintNewline _
   | TmReadNat _
-  | TmAccess (_, _)
-  | TmAccessNamed (_, _)
   | TmHead (_, _)
   | TmTail (_, _)
   | TmIsNil (_, _)
@@ -478,9 +478,9 @@ let string_of_term term =
                 | [] -> acc ^ "}"
             in record_str entries "{"
         | TmAccess (t, n) ->
-            internal false inner t ^ "." ^ string_of_int n
+            internal false (inner + 1) t ^ "." ^ string_of_int n
         | TmAccessNamed (t, n) ->
-            internal false inner t ^ "." ^ n
+            internal false (inner + 1) t ^ "." ^ n
         | TmCons (ty, t1, t2) ->
             "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
         | TmNil ty ->
@@ -676,7 +676,6 @@ let rec isval tm = match tm with
   | TmCons (_, _, _) -> true
   | TmNil _ -> true
   | t when isnumericval t -> true
-  | TmConcat (_ ,_) -> true
   | _ -> false
 ;;
 
@@ -846,7 +845,7 @@ let rec eval1 ctx tm = match tm with
     let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
       (match (t1', t2') with
         (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
-      | _ -> raise (Type_error ("[eval1] Concatenation operator can only be applied to strings")))
+      | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
 
   | _ ->
       raise NoRuleApplies

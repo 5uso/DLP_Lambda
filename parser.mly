@@ -26,7 +26,7 @@
 %token UNIT              //Unit type
 
 %token STRING            //String type
-%token CONCAT            //String oncatenation operator
+%token CONCAT            //String concatenation operator
 
 %token LPAREN
 %token RPAREN
@@ -111,12 +111,8 @@ appTerm :
       { TmIsNil ($3, $5) }
   | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
-  | appTerm CONCAT appTerm
+  | atomicTerm CONCAT atomicTerm
       { TmConcat ($1, $3) }
-  | atomicTerm DOT INTV
-      { TmAccess ($1, $3) }
-  | atomicTerm DOT STRINGV
-      { TmAccessNamed ($1, $3) }
   | appTerm atomicTerm
       { TmApp ($1, $2) }
 
@@ -143,37 +139,39 @@ atomicTerm :
       { TmNil $3 }
   | listAlt
       { list_to_cons $1 }
+  | atomicTerm DOT INTV
+      { TmAccess ($1, $3) }
+  | atomicTerm DOT STRINGV
+      { TmAccessNamed ($1, $3) }
 
 // Tuple term to allow multiple terms inside a tuple with tupleTermR
 tupleTerm :
     // Tuples of 1 element are in the form (x,) as in python
     LPAREN term COMMA RPAREN
       { [$2] }
-  | LPAREN tupleTermR RPAREN
-      { $2 }
+  | LPAREN term tupleTermR RPAREN
+      { $2::(List.rev $3) }
 
 tupleTermR :
     // n-tuples
-    term COMMA tupleTermR
-      { $1::$3 }
-  | term
-      { [$1] }
+    tupleTermR COMMA term
+      { $3::$1 }
+  | COMMA term
+      { [$2] }
 
 recordTerm :
     // 1 element records
     LCURLY recordTermEntry RCURLY
       { [$2] }
-  | LCURLY recordTermR RCURLY
-    // Reverted because when displaying the tuple as a string (string_of_term)
-    // The contents are reverted. This does not affect the functionality
-      { List.rev $2 }
+  | LCURLY recordTermEntry recordTermR RCURLY
+      { $2::$3 }
 
 recordTermR :
     // n-elements record
-    recordTermEntry COMMA recordTermR
-      { $1::$3 }
-  | recordTermEntry
-      { [$1] }
+    recordTermR COMMA recordTermEntry
+      { $3::$1 }
+  | COMMA recordTermEntry
+      { [$2] }
 
 recordTermEntry :
     STRINGV COLON term
@@ -200,7 +198,7 @@ atomicTy :
       { TyTuple $1 }
   | recordTy
       { TyRecord $1 }
-    //   Lists are typed, e.g. List[Nat]
+    // Lists are typed, e.g. List[Nat]
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
 
@@ -221,7 +219,7 @@ recordTy :
       { [$2] }
   | LCURLY recordTyEntry recordTyR RCURLY
     // List needs to be reversed as appending works like a stack 
-      { $2::(List.rev $3) }
+      { $2::$3 }
 
 recordTyR :
     recordTyR COMMA recordTyEntry
@@ -229,7 +227,7 @@ recordTyR :
   | COMMA recordTyEntry
       { [$2] }
 
-//  Record entries are "field_name: field_value" 
+// Record entries are "field_name: field_value" 
 // and get the typing of the value for each corresponding key
 recordTyEntry :
     STRINGV COLON ty

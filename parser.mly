@@ -26,7 +26,7 @@
 %token UNIT              //Unit type
 
 %token STRING            //String type
-%token CONCAT            //String oncatenation operator
+%token CONCAT            //String concatenation operator
 
 %token LPAREN
 %token RPAREN
@@ -111,7 +111,7 @@ appTerm :
       { TmIsNil ($3, $5) }
   | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
-  | appTerm CONCAT appTerm
+  | atomicTerm CONCAT atomicTerm
       { TmConcat ($1, $3) }
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
@@ -200,7 +200,7 @@ atomicTy :
       { TyTuple $1 }
   | recordTy
       { TyRecord $1 }
-    //   Lists are typed, e.g. List[Nat]
+    // Lists are typed, e.g. List[Nat]
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
 
@@ -229,7 +229,7 @@ recordTyR :
   | COMMA recordTyEntry
       { [$2] }
 
-//  Record entries are "field_name: field_value" 
+// Record entries are "field_name: field_value" 
 // and get the typing of the value for each corresponding key
 recordTyEntry :
     STRINGV COLON ty

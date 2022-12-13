@@ -357,7 +357,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in 
       (match (tyT1, tyT2) with 
           (TyStr, TyStr) -> TyStr
-        | _ -> raise (Type_error ("[typeof] Concatenation operator can only be applied to strings")))
+        | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
 ;;
       
 

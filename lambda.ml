@@ -352,6 +352,7 @@ let rec typeof ctx tm = match tm with
           TyList lty when is_subtype ty lty -> TyList ty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 
+    (* T-Concat *)
   | TmConcat (t1, t2) -> 
       let tyT1 = typeof ctx t1 in 
       let tyT2 = typeof ctx t2 in 
@@ -492,15 +493,7 @@ let string_of_term term =
         | TmTail (ty, t) ->
             "tail[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmConcat (t1, t2) -> 
-          (* This is done because 2 strings concatenated stack their quotes when 
-             string_of_ty is called. So their quotes need to be stripped and added at the end*)
-          let strip_string_quotes str =
-            match String.length str with
-              0 | 1 | 2 -> ""
-            | len -> String.sub str 1 (len - 2) in 
-          let str1 = strip_string_quotes (internal false inner t1) in 
-          let str2 = strip_string_quotes (internal false inner t2) in 
-          "\"" ^ str1 ^ str2 ^ "\""
+            (internal false inner t1) ^ " ^ " ^ (internal false inner t2)
       )
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
@@ -730,13 +723,13 @@ let rec eval1 ctx tm = match tm with
 
     (* E-PrintNat *)
   | TmPrintNat t1 ->
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
       print_string (string_of_term t1);
       TmUnit
 
     (* E-PrintString *)
   | TmPrintString t1 ->
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+      let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
       print_string (match t1 with TmStr s -> s
                     | _ -> raise (Type_error "argument of print_string is not a string"));
       TmUnit
@@ -840,12 +833,12 @@ let rec eval1 ctx tm = match tm with
   
     (* E-Concat *)
   | TmConcat (t1, t2) ->
-    (* Evaluate each part individually *)
-    let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
-    let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
+      (* Evaluate each part individually *)
+      let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
+      let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
       (match (t1', t2') with
-        (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
-      | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
+          (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
+        | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
 
   | _ ->
       raise NoRuleApplies

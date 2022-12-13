@@ -352,6 +352,7 @@ let rec typeof ctx tm = match tm with
           TyList lty when is_subtype ty lty -> TyList ty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 
+    (* T-Concat *)
   | TmConcat (t1, t2) -> 
       let tyT1 = typeof ctx t1 in 
       let tyT2 = typeof ctx t2 in 

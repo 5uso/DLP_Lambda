@@ -13,11 +13,11 @@
 %token SUCC
 %token PRED
 %token ISZERO
-%token PRINT_NAT
-%token PRINT_STRING
-%token PRINT_NEWLINE
-%token READ_NAT
-%token READ_STRING
+%token PRINT_NAT         //print_nat kernel function
+%token PRINT_STRING      //print_string kernel function
+%token PRINT_NEWLINE     //print_newline kernel function
+%token READ_NAT          //read_nat kernel function
+%token READ_STRING       //read_String kernel function
 %token LET
 %token LETREC
 %token IN
@@ -37,22 +37,21 @@
 %token SCOLON            //Semicolon, to separate expressions
 %token ARROW
 %token EOF
-%token COMMA
+%token COMMA             //Comma, to separate collection elements
 
-%token LCURLY            //Pairs are created with curly braces
+%token LCURLY            //Records are created with curly braces
 %token RCURLY
 
-%token LIST
-%token CONS
-%token NIL
-%token LBRACKET
+%token CONS              //List constructor
+%token NIL               //Nil represents an empty list
+%token LBRACKET          //Square brackets enclose lists
 %token RBRACKET
-%token HEAD
-%token TAIL
-%token ISNIL
+%token HEAD              //head kernel function
+%token TAIL              //tail kernel function
+%token ISNIL             //isnil kernel function
 
 %token <int> INTV
-%token <string> STRING_VAL //String value delimited by quotes
+%token <string> STRING_VAL //String literal delimited by quotes
 %token <string> STRINGV
 
 %start s
@@ -65,11 +64,14 @@
 %%
 
 s :
+    //Term statements have to end in ;;
     term EOL EOF
       { CmdTerm ($1) }
+    //Bind statements run an alternative command that affects the global context
   | STRINGV EQ term EOL EOF
       { CmdBind ($1, $3) }
 
+//Term precedence had to be tweaked to avoid conflicts with semicolons, which should have the least precedence
 term :
     appTerm
       { $1 }
@@ -79,8 +81,10 @@ term :
       { TmAbs ($2, $4, $6) }                           %prec BEFORE_SCOLON;
   | LET STRINGV EQ term IN term
       { TmLetIn ($2, $4, $6) }                         %prec BEFORE_SCOLON;
+    //Letrec gets translated into fix application in the parser
   | LETREC STRINGV COLON ty EQ term IN term
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) } %prec BEFORE_SCOLON;
+    //Semicolons separate terms by translating them into unit lambda applications
   | term SCOLON term
       { TmApp (TmAbs (fresh_name "x" (free_vars [] $3), TyUnit, $3), $1) }
 
@@ -93,6 +97,7 @@ appTerm :
       { TmPred $2 }
   | ISZERO atomicTerm
       { TmIsZero $2 }
+    //Kernel functions are considered application terms
   | PRINT_NAT atomicTerm
       { TmPrintNat $2 }
   | PRINT_STRING atomicTerm
@@ -103,6 +108,7 @@ appTerm :
       { TmReadNat $2 }
   | READ_STRING atomicTerm
       { TmReadString $2 }
+    //Appterms related to lists are explicitly typed
   | HEAD LBRACKET ty RBRACKET atomicTerm
       { TmHead ($3, $5) }
   | TAIL LBRACKET ty RBRACKET atomicTerm
@@ -111,6 +117,7 @@ appTerm :
       { TmIsNil ($3, $5) }
   | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
       { TmCons ($3, $5, $6) }
+    //String concatenation is a binary operator
   | atomicTerm CONCAT atomicTerm
       { TmConcat ($1, $3) }
   | appTerm atomicTerm
@@ -123,56 +130,65 @@ atomicTerm :
       { TmTrue }
   | FALSE
       { TmFalse }
+    //Units are atomic
   | UNIT_VAL
       { TmUnit }
   | STRINGV
       { TmVar $1 }
   | INTV
       { int_to_nat $1 }
+    //Strings are atomic
   | STRING_VAL
       { TmStr $1 }
+    //Tuples are considered atomic because they are already surrounded by ()
   | tupleTerm
       { TmTuple $1 }
+    //Records are considered atomic because they are already surrounded by {}
   | recordTerm
       { TmRecord $1 }
+    //Nil is considered atomic
   | NIL LBRACKET ty RBRACKET
       { TmNil $3 }
+    //The alternative list constructor "Type[element1,element2...]" is considered atomic 
   | listAlt
       { list_to_cons $1 }
+    //Projection is considered atomic for convenience, as it doesn't cause ambiguity
   | atomicTerm DOT INTV
       { TmAccess ($1, $3) }
   | atomicTerm DOT STRINGV
       { TmAccessNamed ($1, $3) }
 
-// Tuple term to allow multiple terms inside a tuple with tupleTermR
 tupleTerm :
-    // Tuples of 1 element are in the form (x,) as in python
+    //Tuples of 1 element are in the form "(x,)", same as in python
     LPAREN term COMMA RPAREN
       { [$2] }
+    //Tuple with multiple terms
   | LPAREN term tupleTermR RPAREN
       { $2::(List.rev $3) }
 
 tupleTermR :
-    // n-tuples
+    //n-tuples
     tupleTermR COMMA term
       { $3::$1 }
   | COMMA term
       { [$2] }
 
 recordTerm :
-    // 1 element records
+    //Single entry records
     LCURLY recordTermEntry RCURLY
       { [$2] }
+    //Records with multiple entries
   | LCURLY recordTermEntry recordTermR RCURLY
       { $2::$3 }
 
 recordTermR :
-    // n-elements record
+    //n-entry record
     recordTermR COMMA recordTermEntry
       { $3::$1 }
   | COMMA recordTermEntry
       { [$2] }
 
+//A single record entry, in the form "name:value"
 recordTermEntry :
     STRINGV COLON term
       { ($1, $3) }
@@ -194,15 +210,19 @@ atomicTy :
       { TyUnit }
   | STRING
       { TyStr }
+    //Tuple type is considered atomic because it's surrounded by ()
   | tupleTy
       { TyTuple $1 }
+    //Record type is considered atomic because it's surrounded by {}
   | recordTy
       { TyRecord $1 }
-    // Lists are typed, e.g. List[Nat]
-  | LIST LBRACKET ty RBRACKET
-      { TyList $3 }
+    //List types are represented as "[element_type]", which is atomic
+  | LBRACKET ty RBRACKET
+      { TyList $2 }
 
+//Tuple types are a list of the types for each tuple term
 tupleTy :
+    //Tuples of 1 element are in the form "(x,)", same as in python
     LPAREN ty COMMA RPAREN
       { [$2] }
   | LPAREN ty tupleTyR RPAREN
@@ -214,11 +234,11 @@ tupleTyR :
   | COMMA ty
       { [$2] }
 
+//Record types are a list of entries, each with a name and a type
 recordTy :
     LCURLY recordTyEntry RCURLY
       { [$2] }
-  | LCURLY recordTyEntry recordTyR RCURLY
-    // List needs to be reversed as appending works like a stack 
+  | LCURLY recordTyEntry recordTyR RCURLY 
       { $2::$3 }
 
 recordTyR :
@@ -227,18 +247,16 @@ recordTyR :
   | COMMA recordTyEntry
       { [$2] }
 
-// Record entries are "field_name: field_value" 
-// and get the typing of the value for each corresponding key
+//Record type entries are similar to the syntax of the record term
 recordTyEntry :
     STRINGV COLON ty
       { ($1, $3) }
 
+//Alternative constructor for lists
 listAlt :
     ty LBRACKET listAltR RBRACKET
       { ($1, $3) }
 
-// Alternative way of creating lists with "Type [...]"
-// e.g: Nat [1,2,3];;
 listAltR :
     term
       { [$1] }

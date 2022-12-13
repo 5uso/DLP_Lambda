@@ -1,45 +1,45 @@
 
 type ty =
-  TyBool
-| TyNat
-| TyArr of ty * ty
-| TyUnit (* Unit type *)
-| TyStr (* String type *)
-| TyTuple of ty list (* Tuple type *)
-| TyRecord of (string * ty) list (* Record type *)
-| TyList of ty (* List type *)
+    TyBool
+  | TyNat
+  | TyArr of ty * ty
+  | TyUnit                         (* Unit type *)
+  | TyStr                          (* String type *)
+  | TyTuple of ty list             (* Tuple type, with a list of its element's types *)
+  | TyRecord of (string * ty) list (* Record type, with a list of its element's names and types *)
+  | TyList of ty                   (* List type, with its element type *)
 ;;
 
 type term =
-  TmTrue
-| TmFalse
-| TmIf of term * term * term
-| TmZero
-| TmSucc of term
-| TmPred of term
-| TmIsZero of term
-| TmPrintNat of term
-| TmPrintString of term
-| TmPrintNewline of term
-| TmReadNat of term
-| TmReadString of term
-| TmVar of string
-| TmAbs of string * ty * term
-| TmApp of term * term
-| TmLetIn of string * term * term
-| TmFix of term (* Used for recursion *)
-| TmStr of string (* String term *)
-| TmUnit (* Unit term *)
-| TmTuple of term list (* Tuple term *)
-| TmRecord of (string * term) list (* Record term *)
-| TmAccess of term * int (* Nth component of a tuple *)
-| TmAccessNamed of term * string (* Named component of a record *)
-| TmNil of ty (* Nil constructor for lists, indicates the last component *)
-| TmCons of ty * term * term (* Constructor for lists *)
-| TmIsNil of ty * term (* Check if list component is nil *)
-| TmHead of ty * term (* Term to get the head of a list *)
-| TmTail of ty * term (* Term to get the tail of a list *)
-| TmConcat of term * term (* Concatenation term for strings *)
+    TmTrue
+  | TmFalse
+  | TmIf of term * term * term
+  | TmZero
+  | TmSucc of term
+  | TmPred of term
+  | TmIsZero of term
+  | TmPrintNat of term
+  | TmPrintString of term
+  | TmPrintNewline of term
+  | TmReadNat of term
+  | TmReadString of term
+  | TmVar of string
+  | TmAbs of string * ty * term
+  | TmApp of term * term
+  | TmLetIn of string * term * term
+  | TmFix of term                    (* Fix term, used for recursion *)
+  | TmStr of string                  (* String term, uses ocaml strings *)
+  | TmUnit                           (* Unit term *)
+  | TmTuple of term list             (* Tuple term, with a list of its elements *)
+  | TmRecord of (string * term) list (* Record term, with a list of its named elements *)
+  | TmAccess of term * int           (* Projection, gets Nth component of a tuple *)
+  | TmAccessNamed of term * string   (* Projection, gets named component of a record *)
+  | TmNil of ty                      (* Empty list term, explicitly typed *)
+  | TmCons of ty * term * term       (* List cons term, explicitly typed *)
+  | TmIsNil of ty * term             (* Is list empty? Explicitly typed *)
+  | TmHead of ty * term              (* Head of list, explicitly typed *)
+  | TmTail of ty * term              (* Tail of list, explicitly typed *)
+  | TmConcat of term * term          (* Concatenation term for strings *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -47,7 +47,8 @@ type context =
   (string * ty * term) list
 ;;
 
-type cmd = (* For statements that aren't treated as terms *)
+(* Support for statements that aren't treated as terms *)
+type cmd = 
     CmdTerm of term
   | CmdBind of string * term
 ;;

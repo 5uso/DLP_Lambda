@@ -5,11 +5,11 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
-  | TyUnit (* Unit type *)
-  | TyStr (* String type *)
-  | TyTuple of ty list (* Tuple type *)
-  | TyRecord of (string * ty) list (* Record type *)
-  | TyList of ty (* List type *)
+  | TyUnit                         (* Unit type *)
+  | TyStr                          (* String type *)
+  | TyTuple of ty list             (* Tuple type, with a list of its element's types *)
+  | TyRecord of (string * ty) list (* Record type, with a list of its element's names and types *)
+  | TyList of ty                   (* List type, with its element type *)
 ;;
 
 type term =
@@ -29,19 +29,19 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmFix of term (* Used for recursion *)
-  | TmStr of string (* String term *)
-  | TmUnit (* Unit term *)
-  | TmTuple of term list (* Tuple term *)
-  | TmRecord of (string * term) list (* Record term *)
-  | TmAccess of term * int (* Nth component of a tuple *)
-  | TmAccessNamed of term * string (* Named component of a record *)
-  | TmNil of ty (* Empty list term *)
-  | TmCons of ty * term * term (* List cons term *)
-  | TmIsNil of ty * term (* Is list empty *)
-  | TmHead of ty * term (* Head of list *)
-  | TmTail of ty * term (* Tail of list *)
-  | TmConcat of term * term (* Concatenation term for strings *)
+  | TmFix of term                    (* Fix term, used for recursion *)
+  | TmStr of string                  (* String term, uses ocaml strings *)
+  | TmUnit                           (* Unit term *)
+  | TmTuple of term list             (* Tuple term, with a list of its elements *)
+  | TmRecord of (string * term) list (* Record term, with a list of its named elements *)
+  | TmAccess of term * int           (* Projection, gets Nth component of a tuple *)
+  | TmAccessNamed of term * string   (* Projection, gets named component of a record *)
+  | TmNil of ty                      (* Empty list term, explicitly typed *)
+  | TmCons of ty * term * term       (* List cons term, explicitly typed *)
+  | TmIsNil of ty * term             (* Is list empty? Explicitly typed *)
+  | TmHead of ty * term              (* Head of list, explicitly typed *)
+  | TmTail of ty * term              (* Tail of list, explicitly typed *)
+  | TmConcat of term * term          (* Concatenation term for strings *)
 ;;
 
 (* Context now keeps track of values as well as types *)
@@ -49,7 +49,8 @@ type context =
   (string * ty * term) list
 ;;
 
-type cmd = (* For statements that aren't treated as terms *)
+(* Support for statements that aren't treated as terms *)
+type cmd = 
     CmdTerm of term
   | CmdBind of string * term
 ;;
@@ -78,10 +79,12 @@ let emptyctx =
   []
 ;;
 
+(* A binding now also contains a value *)
 let addbinding ctx x ty value =
   (x, ty, value) :: ctx
 ;;
 
+(* Returns the binding tuple *)
 let getbinding ctx x =
   let f a b = match b with (c, _, _) -> c = a
   in List.find (f x) ctx
@@ -97,6 +100,9 @@ let rec string_of_ty ty = match ty with
       "Nat"
   | TyUnit ->
       "Unit"
+  | TyStr ->
+      "String"
+    (* To reduce parenthesis on arrow type display, they only appear if the inner types are arrow as well *)
   | TyArr (ty1, ty2) ->
       (match ty1 with
           TyArr (_, _) -> "(" ^ string_of_ty ty1 ^ ")"
@@ -106,19 +112,16 @@ let rec string_of_ty ty = match ty with
           TyArr (_, _) -> "(" ^ string_of_ty ty2 ^ ")"
         | _ -> string_of_ty ty2
       )
-  | TyStr ->
-      "String"
-  (* Print types as (type1, type2, ...) *)
+    (* Print tuples as (type1, type2, ...) *)
   | TyTuple types ->
       let len = List.length types in
-      (*  *)
       let rec tuple_str t acc =
         match t with 
             hd :: [] -> acc ^ (string_of_ty hd) ^ (if len > 1 then ")" else ",)")
           | hd :: tl -> tuple_str tl (acc ^ (string_of_ty hd) ^ ", ")
-          | [] -> acc ^ (if len > 1 then ")" else ",)")
+          | [] -> acc ^ (if len > 1 then ")" else ",)") (* 1-tuples display a comma at the end for clarity *)
       in tuple_str types "("
-  (* Print records type in the format "field_name: field_type" *)
+    (* Print records type in the format "{field_name: field_type...}" *)
   | TyRecord entries ->
       let rec record_str t acc =
         match t with
@@ -126,6 +129,7 @@ let rec string_of_ty ty = match ty with
           | (name, rty) :: tl -> record_str tl (acc ^ name ^ ": " ^ (string_of_ty rty) ^ ", ")
           | [] -> acc ^ "}"
       in record_str entries "{"
+    (* Lists are represented by their type surrounded by square brackets *)
   | TyList t -> 
       "[" ^ string_of_ty t ^ "]"
 ;;
@@ -143,7 +147,8 @@ let rec is_subtype super ty = match super with
       (match ty with
           TyArr (ty1, ty2) -> (is_subtype super1 ty1) && (is_subtype super2 ty2)
         | _ -> false)
-  | TyTuple types -> (* Tuples can be subtyped by smaller tuples that have the same starting types *)
+    (* Tuples can be subtyped by smaller tuples that have the same starting types *)
+  | TyTuple types ->
       (match ty with
           TyTuple subtypes -> (
             let rec tuple_sub sup sub =
@@ -153,12 +158,14 @@ let rec is_subtype super ty = match super with
             in tuple_sub types subtypes
           )
         | _ -> false) 
-  | TyRecord entries -> (* Records can be subtyped if all named entries of the super appear in the sub with the same type *)
+    (* Records can be subtyped if all named entries of the super appear in the sub with the same type *)
+  | TyRecord entries ->
       (match ty with
-          TyRecord subentries ->
+          TyRecord subentries -> (* Order doesn't matter, so we fold to make sure the condition is fullfilled for all supers *)
             List.fold_left (&&) true (List.rev_map (function x -> List.exists ((=) x) subentries) entries)
         | _ -> false)
-  | TyList super1 ->
+    (* Lists fullfill subtyping if their elements do *)
+  | TyList super1 -> 
       (match ty with
           TyList ty1 -> is_subtype super1 ty1
         | _ -> false)
@@ -275,7 +282,7 @@ let rec typeof ctx tm = match tm with
   
     (* T-Tuple *)
   | TmTuple terms ->
-      let rec tuple_type t acc =
+      let rec tuple_type t acc = (* Construct a tuple type by making a list containing each element's type *)
         match t with
             hd :: tl -> tuple_type tl ((typeof ctx hd)::acc)
           | [] -> acc
@@ -283,15 +290,15 @@ let rec typeof ctx tm = match tm with
 
     (* T-Record *)
   | TmRecord entries ->
-      let rec record_type t acc =
+      let rec record_type t acc = (* Construct a record type by including each entry's name and type (Order doesn't matter) *)
         match t with
             (name, rt) :: tl -> record_type tl ((name, (typeof ctx rt))::acc)
           | [] -> acc
       in TyRecord (record_type entries [])
 
     (* T-Access *)
-  | TmAccess (t, n) ->
-      let t' = typeof ctx t in
+  | TmAccess (t, n) -> (* Numbered projection can be applied to tuples if the index is in bounds *)
+      let t' = typeof ctx t in (* First get tuple type *)
       (match t' with
           TyTuple types -> (
             let rec access_type t i =
@@ -304,8 +311,8 @@ let rec typeof ctx tm = match tm with
         | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
 
     (* T-AccessNamed *)
-  | TmAccessNamed (t, n) ->
-      let t' = typeof ctx t in
+  | TmAccessNamed (t, n) -> (* Named projection can be applied to records if an entry exists for the name *)
+      let t' = typeof ctx t in (* First get record type *)
       (match t' with
           TyRecord entries -> (
             (* Iterate over the internal list looking for the value accessed and return it's type *)
@@ -322,8 +329,8 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
       (match tyT2 with
-      (* Both elements of the constructor must be of the same type (as the second is a cons aswell it leads to recursive type evaluation), 
-      for all the elements in the list to be of the same type *)
+      (* Both elements of the constructor must be of the same type.
+         If the second child being evaluated is a cons, recursion ensures the entire list has a consistent type *)
           TyList lty when is_subtype ty tyT1 && is_subtype ty lty -> TyList ty
         | _ -> raise (Type_error "Type mismatch in cons"))
 
@@ -332,21 +339,21 @@ let rec typeof ctx tm = match tm with
       TyList t
 
     (* T-IsNil *)
-  | TmIsNil (ty, t) ->
+  | TmIsNil (ty, t) -> (* If the type of its argument is a list matching the isnil type, types as a bool *)
       let tyT = typeof ctx t in
       (match tyT with
           TyList lty when is_subtype ty lty -> TyBool
         | _ -> raise (Type_error ("Argument of is_nil[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
       
     (* T-Head *)
-  | TmHead (ty, t) ->
+  | TmHead (ty, t) -> (* If the type of its argument is a list matching the head type, types as the head type *)
       let tyT = typeof ctx t in
       (match tyT with
           TyList lty when is_subtype ty lty -> ty
         | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
     
     (* T-Tail *)
-  | TmTail (ty, t) ->
+  | TmTail (ty, t) -> (* If the type of its argument is a list matching the tail type, types as a list of the tail type *)
       let tyT = typeof ctx t in
       (match tyT with
           TyList lty when is_subtype ty lty -> TyList ty
@@ -364,6 +371,8 @@ let rec typeof ctx tm = match tm with
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
+(* Corresponds to the level of precedence each terms has in the grammar.
+   While pretty-printing, we must use parenthesis if an inner term's precedence >= current precedence *)
 let term_precedence = function
     TmUnit
   | TmTrue
@@ -376,12 +385,12 @@ let term_precedence = function
   | TmAccessNamed (_, _)
   | TmTuple _
   | TmRecord _ -> 1
-  | TmSucc t ->
-      let rec f n t' = match t' with
+  | TmSucc t -> (* Succ may be printed as an application or as a numeric literal. Its precedence depends on this *)
+      let rec f t' = match t' with
           TmZero -> 0
-        | TmSucc s -> f (n + 1) s
+        | TmSucc s -> f s
         | _ -> 2
-      in f 1 t
+      in f t
   | TmPred _
   | TmIsZero _
   | TmPrintNat _
@@ -401,16 +410,18 @@ let term_precedence = function
   | TmLetIn (_, _, _) -> 6
 ;;
 
+(* Pretty printer *)
 let string_of_term term =
   let rec clean_newlines s =
+    (* Stepping out of several indentations may cause consecutive newlines, collapse them into a single one *)
     let clean = Str.global_replace (Str.regexp "\n *\n") "\n" s in
     if clean = s then clean else clean_newlines clean
   in
   let rec internal indent outer term =
-    let inner = term_precedence term in
+    let inner = term_precedence term in (* Get this term's precedence *)
     let result =
-      (if indent then "\n" else "") ^
-      (if inner >= outer then "(" else "") ^
+      (if indent then "\n" else "") ^ (* If starting an indentation, begin with a newline *)
+      (if inner >= outer then "(" else "") ^ (* Adds starting parenthesis when needed *)
       (match term with
           TmTrue ->
             "true"
@@ -434,7 +445,7 @@ let string_of_term term =
             "pred " ^ internal false inner t
         | TmIsZero t ->
             "iszero " ^ internal false inner t
-            | TmPrintNat t ->
+        | TmPrintNat t ->
             "print_nat " ^ internal false inner t
         | TmPrintString t ->
             "print_string " ^ internal false inner t
@@ -444,43 +455,43 @@ let string_of_term term =
             "read_nat " ^ internal false inner t
         | TmReadString t ->
             "read_string " ^ internal false inner t
-        | TmIf (t1,t2,t3) ->
+        | TmIf (t1,t2,t3) -> (* If indents each of its inner terms *)
             "if" ^
               internal true inner t1 ^
             "then" ^
               internal true inner t2 ^
             "else" ^
               internal true inner t3
-        | TmAbs (s, tyS, t) ->
+        | TmAbs (s, tyS, t) -> (* Lambda indents expression *)
             "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^
               internal true inner t
         | TmFix (t1) ->
             "fix " ^ internal false inner t1
-        | TmApp (t1, t2) ->
+        | TmApp (t1, t2) -> (* Add one to outer precedence to avoid unnecessary pathenthesis when used with itself *)
             internal false (inner + 1) t1 ^ " " ^ internal false inner t2
-        | TmLetIn (s, t1, t2) ->
+        | TmLetIn (s, t1, t2) -> (* Let in indents each of its terms *)
             "let " ^ s ^ " = " ^
               internal true inner t1 ^
             "in" ^
               internal true inner t2
-        | TmTuple terms ->
+        | TmTuple terms -> (* Iterate terms within the tuple *)
             let len = List.length terms in
             let rec tuple_str t acc =
               match t with 
                   hd :: [] -> acc ^ (internal false inner hd) ^ (if len > 1 then ")" else ",)")
                 | hd :: tl -> tuple_str tl (acc ^ (internal false inner hd) ^ ", ")
-                | [] -> acc ^ (if len > 1 then ")" else ",)")
+                | [] -> acc ^ (if len > 1 then ")" else ",)") (* 1-tuples display a comma at the end for clarity *)
             in tuple_str terms "("
-        | TmRecord entries ->
+        | TmRecord entries -> (* Iterate entries within the record *)
             let rec record_str t acc =
               match t with
                   (name, rt) :: [] -> acc ^ name ^ ": " ^ (internal false inner rt) ^ "}"
                 | (name, rt) :: tl -> record_str tl (acc ^ name ^ ": " ^ (internal false inner rt) ^ ", ")
                 | [] -> acc ^ "}"
             in record_str entries "{"
-        | TmAccess (t, n) ->
+        | TmAccess (t, n) -> (* Add one to outer precedence to avoid unnecessary pathenthesis when used with itself *)
             internal false (inner + 1) t ^ "." ^ string_of_int n
-        | TmAccessNamed (t, n) ->
+        | TmAccessNamed (t, n) -> (* Add one to outer precedence to avoid unnecessary pathenthesis when used with itself *)
             internal false (inner + 1) t ^ "." ^ n
         | TmCons (ty, t1, t2) ->
             "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
@@ -495,9 +506,10 @@ let string_of_term term =
         | TmConcat (t1, t2) -> 
             (internal false inner t1) ^ " ^ " ^ (internal false inner t2)
       )
+    (* Indentation is applied by adding two spaces after every \n, once per indent level *)
     in (if indent then Str.global_replace (Str.regexp_string "\n") "\n  " result else result) ^
        (if indent then "\n" else "") ^
-       (if inner >= outer then (if indent then "  )" else ")") else "")
+       (if inner >= outer then (if indent then "  )" else ")") else "") (* Adds ending parenthesis when needed *)
   in clean_newlines (internal false 9999 term)
 ;;
 
@@ -551,11 +563,10 @@ let free_vars ctx tm =
     | TmFix (t1) ->
         free_vars t1
     | TmStr s ->
-        [s]
-    | TmTuple terms -> 
-        (* Gather free_vars from all the elements in the internal list *)
+        []
+    | TmTuple terms -> (* Gather free_vars from all the elements in the internal list *)
         List.fold_left lunion [] (List.rev_map free_vars terms)
-    | TmRecord entries ->
+    | TmRecord entries -> (* Same as tuple, but we have to get the values from within the entries *)
         List.fold_left lunion [] (List.rev_map (function (_, x) -> free_vars x) entries)
     | TmAccess (t, n) ->
         free_vars t
@@ -630,9 +641,9 @@ let rec subst ctx x s tm = match tm with
       TmFix (subst ctx x s t1)
   | TmStr s ->
       TmStr s
-  | TmTuple terms ->
+  | TmTuple terms -> (* Map the tuple to a substituted version *)
       TmTuple (List.map (subst ctx x s) terms)
-  | TmRecord entries ->
+  | TmRecord entries -> (* Same as tuple, but only substitute into values *)
       TmRecord (List.map (function (n, t) -> (n, subst ctx x s t)) entries)
   | TmAccess (t, n) ->
       TmAccess (subst ctx x s t, n)
@@ -666,7 +677,7 @@ let rec isval tm = match tm with
   | TmStr _ -> true
   | TmTuple _ -> true
   | TmRecord _ -> true
-  | TmCons (_, _, _) -> true
+  | TmCons (_, _, _) -> true (* Even though the constructor is an application, it's a value, such as succ *)
   | TmNil _ -> true
   | t when isnumericval t -> true
   | _ -> false
@@ -722,20 +733,20 @@ let rec eval1 ctx tm = match tm with
       TmIsZero t1'
 
     (* E-PrintNat *)
-  | TmPrintNat t1 ->
+  | TmPrintNat t1 -> (* Avoid having to add multiple eval match branches by evaluating inner with a try *)
       let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
       print_string (string_of_term t1);
       TmUnit
 
     (* E-PrintString *)
-  | TmPrintString t1 ->
+  | TmPrintString t1 -> 
       let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
       print_string (match t1 with TmStr s -> s
                     | _ -> raise (Type_error "argument of print_string is not a string"));
       TmUnit
 
     (* E-PrintNewline *)
-  | TmPrintNewline t1 ->
+  | TmPrintNewline t1 -> (* Make sure the unit argument is evaluated *)
       (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
       print_string "\n";
       TmUnit
@@ -790,7 +801,7 @@ let rec eval1 ctx tm = match tm with
     (* E-Access *)
   | TmAccess (t, n) ->
       (match (try eval1 ctx t with NoRuleApplies -> t) with
-          TmTuple terms -> (
+          TmTuple terms -> ( (* Get the term from within the tuple if it's in bounds *)
             let rec access_eval t i =
               match t with
                   hd :: tl -> if i = n then hd else access_eval tl (i + 1)
@@ -802,7 +813,7 @@ let rec eval1 ctx tm = match tm with
     (* E-AccessNamed *)
   | TmAccessNamed (t, n) ->
       (match (try eval1 ctx t with NoRuleApplies -> t) with
-          TmRecord entries -> (
+          TmRecord entries -> ( (* Get the term from within the record if an entry for the name exists *)
             let rec access_named_eval t =
               match t with
                   (name, rt) :: tl -> if name = n then rt else access_named_eval tl
@@ -872,6 +883,7 @@ let run_cmd ctx = function
       addbinding ctx x (typeof ctx bind) bind
 ;;
 
+(* Checks the typing of a command without evaluating *)
 let check_cmd ctx = function
     CmdTerm (tm) -> 
       ignore (typeof ctx tm); ctx
@@ -880,6 +892,7 @@ let check_cmd ctx = function
       addbinding ctx x (typeof ctx bind) bind
 ;;
 
+(* Executes a command without displaying the result *)
 let run_cmd_silent ctx = function
     CmdTerm (tm) -> 
       ignore (eval ctx tm); ctx

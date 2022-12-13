@@ -149,31 +149,29 @@ tupleTerm :
     // Tuples of 1 element are in the form (x,) as in python
     LPAREN term COMMA RPAREN
       { [$2] }
-  | LPAREN tupleTermR RPAREN
-      { $2 }
+  | LPAREN term tupleTermR RPAREN
+      { $2::(List.rev $3) }
 
 tupleTermR :
     // n-tuples
-    term COMMA tupleTermR
-      { $1::$3 }
-  | term
-      { [$1] }
+    tupleTermR COMMA term
+      { $3::$1 }
+  | COMMA term
+      { [$2] }
 
 recordTerm :
     // 1 element records
     LCURLY recordTermEntry RCURLY
       { [$2] }
-  | LCURLY recordTermR RCURLY
-    // Reverted because when displaying the tuple as a string (string_of_term)
-    // The contents are reverted. This does not affect the functionality
-      { List.rev $2 }
+  | LCURLY recordTermEntry recordTermR RCURLY
+      { $2::$3 }
 
 recordTermR :
     // n-elements record
-    recordTermEntry COMMA recordTermR
-      { $1::$3 }
-  | recordTermEntry
-      { [$1] }
+    recordTermR COMMA recordTermEntry
+      { $3::$1 }
+  | COMMA recordTermEntry
+      { [$2] }
 
 recordTermEntry :
     STRINGV COLON term
@@ -221,7 +219,7 @@ recordTy :
       { [$2] }
   | LCURLY recordTyEntry recordTyR RCURLY
     // List needs to be reversed as appending works like a stack 
-      { $2::(List.rev $3) }
+      { $2::$3 }
 
 recordTyR :
     recordTyR COMMA recordTyEntry

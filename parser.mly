@@ -1,5 +1,13 @@
 
 %{
+  (*
+    Lambda Parser,
+    by Jesús Mosteiro García and Luca D’angelo Sabin
+      (jesus.mosteiro@udc.es)    (l.dangelo@udc.es)
+
+    Made for the programming language design course at UDC.
+  *)
+
   open Lambda;;
 %}
 

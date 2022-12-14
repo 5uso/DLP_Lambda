@@ -22,5 +22,5 @@ run: run.ml
 	ocamlc -c run.ml
 
 clean:
-	rm -f lexer.ml parser.mli parser.ml *.cmi *.cmo *~
+	rm -f lexer.ml parser.mli parser.ml *.cmi *.cmo *.output *~
 

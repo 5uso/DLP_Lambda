@@ -377,7 +377,7 @@ let rec isnumericval tm = match tm with
   | _ -> false
 ;;
 
-let rec islistval tm = match tm with
+let rec islistval tm = match tm with (* Similar to isnumericval, used to determine if a list can be treated as a value *)
     TmNil _ -> true
   | TmCons (_, t1, t2) -> (isval t1) && (islistval t2)
   | _ -> false
@@ -425,7 +425,7 @@ let term_precedence tm = match tm with
   | TmIsNil (_, _)
   | TmConcat (_, _)
   | TmReadString _ -> 2
-  | TmCons (_, _, _) when islistval tm -> 1
+  | TmCons (_, _, _) when islistval tm -> 1 (* Cons may be printed as an application or in a list format. Its precedence depends on this *)
   | TmCons (_, _, _) -> 2
   | TmIf (_, _, _) -> 3
   | TmAbs (_, _, _) -> 4
@@ -518,7 +518,7 @@ let string_of_term term =
         | TmAccessNamed (t, n) -> (* Add one to outer precedence to avoid unnecessary pathenthesis when used with itself *)
             internal false (inner + 1) t ^ "." ^ n
         | TmCons (ty, _, _) when islistval term ->
-            let rec list_str t acc =
+            let rec list_str t acc = (* If cons is a pure list value, pretty print the list *)
               match t with 
                   TmCons(_, t1, TmNil _) -> acc ^ (internal false inner t1) ^ "]"
                 | TmCons(_, t1, t2) -> list_str t2 (acc ^ (internal false inner t1) ^ ", ")
@@ -743,34 +743,49 @@ let rec eval1 ctx tm = match tm with
       let t1' = eval1 ctx t1 in
       TmIsZero t1'
 
-    (* E-PrintNat *)
-  | TmPrintNat t1 -> (* Avoid having to add multiple eval match branches by evaluating inner with a try *)
-      let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
+    (* E-PrintNat1: Runs print if applied to a value *)
+  | TmPrintNat t1 when isnumericval t1 ->
       print_string (string_of_term t1);
       TmUnit
 
-    (* E-PrintString *)
-  | TmPrintString t1 -> 
-      let t1 = (try eval1 ctx t1 with NoRuleApplies -> t1) in
+    (* E-PrintNat2: Evaluates parameter before running *)
+  | TmPrintNat t1 ->
+      TmPrintNat (eval1 ctx t1)
+
+    (* E-PrintString1: Runs print if applied to a value *)
+  | TmPrintString t1 when isval t1 ->
       print_string (match t1 with TmStr s -> s
                     | _ -> raise (Type_error "argument of print_string is not a string"));
       TmUnit
 
-    (* E-PrintNewline *)
-  | TmPrintNewline t1 -> (* Make sure the unit argument is evaluated *)
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+    (* E-PrintString2: Evaluates parameter before running *)
+  | TmPrintString t1 -> 
+      TmPrintString (eval1 ctx t1)
+
+    (* E-PrintNewline1: Runs print if applied to a value *)
+  | TmPrintNewline t1 when isval t1 ->
       print_string "\n";
       TmUnit
 
-    (* E-ReadNat *)
-  | TmReadNat t1 ->
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+    (* E-PrintNewline2: Make sure the parameter is evaluated, even if it's of type unit *)
+  | TmPrintNewline t1 ->
+      TmPrintNewline (eval1 ctx t1)
+
+    (* E-ReadNat1: Runs read if applied to a value *)
+  | TmReadNat t1 when isval t1 ->
       int_to_nat (read_int ())
 
-    (* E-ReadString *)
-  | TmReadString t1 ->
-      (try ignore (eval1 ctx t1) with NoRuleApplies -> ());
+    (* E-ReadNat2: Make sure the parameter is evaluated, even if it's of type unit *)
+  | TmReadNat t1 ->
+      TmReadNat (eval1 ctx t1)
+
+    (* E-ReadString1: Runs read if applied to a value *)
+  | TmReadString t1 when isval t1 ->
       TmStr (read_line ())
+
+    (* E-ReadString2: Make sure the parameter is evaluated, even if it's of type unit *)
+  | TmReadString t1 ->
+      TmReadString (eval1 ctx t1)
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->
@@ -809,9 +824,9 @@ let rec eval1 ctx tm = match tm with
       (try (match getbinding ctx y with (_, _, value) -> value) with
       _ -> raise (Type_error ("no binding value for variable " ^ y)))
       
-    (* E-Access *)
-  | TmAccess (t, n) ->
-      (match (try eval1 ctx t with NoRuleApplies -> t) with
+    (* E-Access1: Access tuple when it's a pure value *)
+  | TmAccess (t, n) when isval t ->
+      (match t with
           TmTuple terms -> ( (* Get the term from within the tuple if it's in bounds *)
             let rec access_eval t i =
               match t with
@@ -820,10 +835,14 @@ let rec eval1 ctx tm = match tm with
             in access_eval terms 1
           )
         | _ -> raise (Type_error "Can only apply numbered projection to a tuple"))
+
+    (* E-Access2: Evaluate tuple before accessing it *)
+  | TmAccess (t, n) ->
+      TmAccess (eval1 ctx t, n)
   
-    (* E-AccessNamed *)
-  | TmAccessNamed (t, n) ->
-      (match (try eval1 ctx t with NoRuleApplies -> t) with
+    (* E-AccessNamed1: Access record if it's a pure value *)
+  | TmAccessNamed (t, n) when isval t ->
+      (match t with
           TmRecord entries -> ( (* Get the term from within the record if an entry for the name exists *)
             let rec access_named_eval t =
               match t with
@@ -833,40 +852,61 @@ let rec eval1 ctx tm = match tm with
           )
         | _ -> raise (Type_error "Can only apply named projection to a record"))
 
-    (* E-Cons1 *)
+    (* E-AccessNamed2: Evaluate record before accessing it *)
+  | TmAccessNamed (t, n) ->
+      TmAccessNamed (eval1 ctx t, n)
+
+    (* E-Cons1: Evaluate head of list *)
   | TmCons (ty, t1, t2) when not (isval t1) ->
       TmCons (ty, eval1 ctx t1, t2)
 
-    (* E-Cons2 *)
+    (* E-Cons2: Evaluate tail of list *)
   | TmCons (ty, t1, t2) when not (isval t2) ->
       TmCons (ty, t1, eval1 ctx t2)
 
-    (* E-IsNil *)
-  | TmIsNil (ty, t) ->
-      (match (try eval1 ctx t with NoRuleApplies -> t) with
+    (* E-IsNil1: Run nil check on a value *)
+  | TmIsNil (ty, t) when isval t ->
+      (match t with
           TmNil _ -> TmTrue
         | _ -> TmFalse)
+  
+    (* E-IsNil2: Evaluate parameter before nil check *)
+  | TmIsNil (ty, t) ->
+      TmIsNil (ty, eval1 ctx t)
 
-    (* E-Head *)
-  | TmHead (ty, t) ->
-      (match (try eval1 ctx t with NoRuleApplies -> t) with
+    (* E-Head1: Get the head of a list value *)
+  | TmHead (ty, t) when isval t ->
+      (match t with
           TmCons (lty, t1, t2) -> t1
         | TmNil lty -> raise (Type_error ("Can't get head of Nil"))
         | _ -> raise (Type_error ("Argument of head[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
 
-    (* E-Tail *)
-  | TmTail (ty, t) ->
-      (match (try eval1 ctx t with NoRuleApplies -> t) with
+    (* E-Head2: Evaluate parameter before getting its head *)
+  | TmHead (ty, t) ->
+      TmHead (ty, eval1 ctx t)
+
+    (* E-Tail1: Get the tail of a list value *)
+  | TmTail (ty, t) when isval t ->
+      (match t with
           TmCons (lty, t1, t2) -> t2
         | TmNil lty -> TmNil lty
         | _ -> raise (Type_error ("Argument of tail[" ^ string_of_ty ty ^ "] must be a list[" ^ string_of_ty ty ^ "]")))
   
-    (* E-Concat *)
+    (* E-Tail2: Evaluate parameter before getting its tail *)
+  | TmTail (ty, t) ->
+      TmTail (ty, eval1 ctx t)
+
+    (* E-Concat1: Evaluate first parameter of concat *)
+  | TmConcat (t1, t2) when not (isval t1) ->
+      TmConcat (eval1 ctx t1, t2)
+
+    (* E-Concat2: Evaluate second parameter of concat *)
+  | TmConcat (t1, t2) when not (isval t2) ->
+      TmConcat (t1, eval1 ctx t2)
+
+    (* E-Concat3: Concatenate two values *)
   | TmConcat (t1, t2) ->
-      (* Evaluate each part individually *)
-      let t1' = (try eval1 ctx t1 with NoRuleApplies -> t1) in
-      let t2' = (try eval1 ctx t2 with NoRuleApplies -> t2) in 
-      (match (t1', t2') with
+      (match (t1, t2) with
           (TmStr str1, TmStr str2) -> TmStr (str1 ^ str2)
         | _ -> raise (Type_error ("Concatenation operator can only be applied to strings")))
 

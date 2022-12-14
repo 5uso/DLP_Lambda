@@ -1,0 +1,23 @@
+append = letrec append : [Nat] -> [Nat] -> [Nat] =
+  lambda l1 : [Nat]. lambda l2 : [Nat]. if isnil[Nat] l1 then l2 else cons[Nat] (head[Nat] l1) (append (tail[Nat] l1) l2) in
+append;;
+
+name = print_string "Welcome! Please input your name: "; read_string ();;
+print_string "Hi, "; print_string name; print_string "!"; print_newline ();;
+
+print_newline (); print_string "Please input a sequence of numbers bigger than 0, and 0 when done."; print_newline ();;
+
+numbers = letrec input : [Nat] -> [Nat] = 
+  lambda acc : [Nat]. let n = read_nat () in
+    if iszero n then acc else input (append acc Nat[n])
+in input Nat[];;
+
+print_newline (); print_string "Here are the numbers you typed: ";
+letrec print : [Nat] -> Unit =
+  lambda l : [Nat]. if isnil[Nat] l then () else (
+    if isnil[Nat] (tail[Nat] l) then print_nat (head[Nat] l) else (
+      print_nat (head[Nat] l); print_string ", "; print (tail[Nat] l)
+    )
+  )
+in print numbers;
+print_string "."; print_newline ();;

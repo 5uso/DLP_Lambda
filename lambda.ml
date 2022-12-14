@@ -371,9 +371,32 @@ let rec typeof ctx tm = match tm with
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
+let rec isnumericval tm = match tm with
+    TmZero -> true
+  | TmSucc t -> isnumericval t
+  | _ -> false
+;;
+
+let rec islistval tm = match tm with
+    TmNil _ -> true
+  | TmCons (_, t1, t2) -> (isval t1) && (islistval t2)
+  | _ -> false
+and isval tm = match tm with
+    TmTrue  -> true
+  | TmFalse -> true
+  | TmUnit  -> true
+  | TmAbs _ -> true
+  | TmStr _ -> true
+  | TmTuple _ -> true
+  | TmRecord _ -> true
+  | t when isnumericval t -> true
+  | t when islistval t -> true
+  | _ -> false
+;;
+
 (* Corresponds to the level of precedence each terms has in the grammar.
    While pretty-printing, we must use parenthesis if an inner term's precedence >= current precedence *)
-let term_precedence = function
+let term_precedence tm = match tm with
     TmUnit
   | TmTrue
   | TmFalse
@@ -402,6 +425,7 @@ let term_precedence = function
   | TmIsNil (_, _)
   | TmConcat (_, _)
   | TmReadString _ -> 2
+  | TmCons (_, _, _) when islistval tm -> 1
   | TmCons (_, _, _) -> 2
   | TmIf (_, _, _) -> 3
   | TmAbs (_, _, _) -> 4
@@ -493,10 +517,17 @@ let string_of_term term =
             internal false (inner + 1) t ^ "." ^ string_of_int n
         | TmAccessNamed (t, n) -> (* Add one to outer precedence to avoid unnecessary pathenthesis when used with itself *)
             internal false (inner + 1) t ^ "." ^ n
+        | TmCons (ty, _, _) when islistval term ->
+            let rec list_str t acc =
+              match t with 
+                  TmCons(_, t1, TmNil _) -> acc ^ (internal false inner t1) ^ "]"
+                | TmCons(_, t1, t2) -> list_str t2 (acc ^ (internal false inner t1) ^ ", ")
+                | _ -> acc ^ "]"
+            in list_str term ((string_of_ty ty) ^ "[")
         | TmCons (ty, t1, t2) ->
             "cons[" ^ string_of_ty ty ^ "] " ^ internal false inner t1 ^ " " ^ internal false inner t2
         | TmNil ty ->
-            "nil[" ^ string_of_ty ty ^ "]"
+            string_of_ty ty ^ "[]"
         | TmIsNil (ty, t) ->
             "isnil[" ^ string_of_ty ty ^ "] " ^ internal false inner t
         | TmHead (ty, t) ->
@@ -663,26 +694,6 @@ let rec subst ctx x s tm = match tm with
       TmConcat (subst ctx x s t1, subst ctx x s t2)
 ;;
 
-let rec isnumericval tm = match tm with
-    TmZero -> true
-  | TmSucc t -> isnumericval t
-  | _ -> false
-;;
-
-let rec isval tm = match tm with
-    TmTrue  -> true
-  | TmFalse -> true
-  | TmUnit  -> true
-  | TmAbs _ -> true
-  | TmStr _ -> true
-  | TmTuple _ -> true
-  | TmRecord _ -> true
-  | TmCons (_, _, _) -> true (* Even though the constructor is an application, it's a value, such as succ *)
-  | TmNil _ -> true
-  | t when isnumericval t -> true
-  | _ -> false
-;;
-
 exception NoRuleApplies
 ;;
 
@@ -821,6 +832,14 @@ let rec eval1 ctx tm = match tm with
             in access_named_eval entries
           )
         | _ -> raise (Type_error "Can only apply named projection to a record"))
+
+    (* E-Cons1 *)
+  | TmCons (ty, t1, t2) when not (isval t1) ->
+      TmCons (ty, eval1 ctx t1, t2)
+
+    (* E-Cons2 *)
+  | TmCons (ty, t1, t2) when not (isval t2) ->
+      TmCons (ty, t1, eval1 ctx t2)
 
     (* E-IsNil *)
   | TmIsNil (ty, t) ->

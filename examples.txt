@@ -112,6 +112,8 @@ is_tuple_more_equal = letrec r : (Nat,) -> (Nat,) -> Bool =
     )
 in r;;
 
+not = lambda x : Bool. if x then false else true;;
+
 sort_tuples is_tuple_more_equal (Nat,)[(4, "some_data_goes_here"), (3, {name: "value"}), (1, "sorted"), (7, true)];;
-sort_tuples (L a:(Nat,). L b:(Nat,). if is_tuple_more_equal a b then false else true)
+sort_tuples (L a:(Nat,). L b:(Nat,). not (is_tuple_more_equal a b))
   (Nat,)[(4, "epic"), (3, {name: "value"}), (1, "sorted"), (7, true)];;

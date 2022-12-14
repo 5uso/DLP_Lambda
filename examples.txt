@@ -1,68 +1,117 @@
-true;;
-let x = true in x;;
-if false then true else false;;
-0;;
-succ (succ (succ 0));;
-3;;
-succ (pred 0);;
-iszero (pred (succ (succ 0)));;
-print_string "
-    --- Errors ----
+"Sum of two nats";;
+sum = letrec sum : Nat -> Nat -> Nat =
+  lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in
+sum;;
+
+sum 27 11;;
+
+"Product of two nats";;
+prod = letrec prod : Nat -> Nat -> Nat =
+  lambda n : Nat. lambda m : Nat. if iszero n then 0 else sum (prod (pred n) m) m in
+prod;;
+
+prod 27 11;;
+
+"Get nth element of the fibonacci sequence";;
+fib = letrec fib : Nat -> Nat =
+  lambda n : Nat. if iszero n then 0 else (if iszero (pred n) then 1 else sum (fib (pred n)) (fib (pred (pred n)))) in
+fib;;
+
+fib 11;;
+
+"Factorial of a nat";;
+fact = letrec fact : Nat -> Nat =
+  lambda n : Nat. if iszero n then 1 else prod (fact (pred n)) n in
+fact;;
+
+fact 5;;
+
+"String concatenation";;
+print_string ("a" ^ "b");;
+print_string ("a" ^ ("
+" ^ "b" ));;
+
+"Length of a list (of nats)";;
+length = letrec length : [Nat] -> Nat =
+  lambda l : [Nat]. if isnil[Nat] l then 0 else succ (length (tail[Nat] l)) in
+length;;
+
+length Nat[1,2,3,4,5,6];;
+
+"Append a list of nats to another";;
+append = letrec append : [Nat] -> [Nat] -> [Nat] =
+  lambda l1 : [Nat]. lambda l2 : [Nat]. if isnil[Nat] l1 then l2 else cons[Nat] (head[Nat] l1) (append (tail[Nat] l1) l2) in
+append;;
+
+append Nat[1,2,3] Nat[4,5,6];;
+
+"Map a list of nats to another given a Nat->Nat function";;
+map = letrec map : (Nat -> Nat) -> [Nat] -> [Nat] =
+  lambda f : (Nat -> Nat). lambda l : [Nat]. if isnil[Nat] l then l else
+  let val = f (head[Nat] l) in
+    cons[Nat] val (map f (tail[Nat] l)) in
+map;;
+
+map (prod 2) Nat[1,2,3,4,5,6];;
+
+"
+Subtyping example 1:
+
+We define a function to print information about a pet, which is represented
+by a record with fields corresponding to its name, age, and species.
+
+Then we use the function on 3 other records which fulfill the subtyping.
+We can observe how changing the order of the entries and having additional
+entries doesn't stop us from using the function.
+However, if these 3 fields didn't exist in the record with these same names
+and types, we would get a type error.
 ";;
-if iszero 3 then 0 else 1;;
-iszero true;;
-if 1 then true else false;;
-if iszero 3 then 0 else false;;
-print_string "
-    --- End Errors ----
+let print_pet =
+  lambda pet : {name: String, age: Nat, species: String}.
+    (print_string pet.name; print_string " is a ";
+     print_nat pet.age; print_string " year old ";
+     print_string pet.species; print_string "."; print_newline())
+in (print_pet {name: "John", age: 5, species: "bat"};
+    print_pet {name: "Ursula", age: 27, species: "giraffe", height: "like a lot"};
+    print_pet {sea_creature: true, age: 2711, name: "Brian", species: "whale", epicness: 255})
+;;
+
+"
+Subtyping example 2:
+
+We define a function that sorts a list of tuples based on each of the tuples'
+first elements, which must be of type Nat. It takes as argument a comparator
+function, as well as the list.
+
+Then we define another function to use as comparator for the sorting, which
+also takes tuples subtyping (Nat,).
+
+Finally, we can use these functions to sort data according to indices indicated
+by the first element of their tuples. Any tuple can be subtyped into the lists
+without issue as long as its first element is of type Nat.
 ";;
-let id = Lx.x in id 3;; <----- No funciona;;
-let id_bool = L x:Bool. x in id_bool true;;
-let id_nat = L x:Nat. x in id_nat 5;;
-let x = 5 in let id_nat = L x:Nat. x in id_nat x;;
-letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in sum 21 34;;
-let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in 
-    let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in 
-    let sum = fix sumaux in sum 21 34;;
-let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in 
-    let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in 
-    let sum = fix sumaux in 
-    let prodaux = lambda f. (lambda n. (lambda m. if (iszero m) then 0 else sum n (f n (pred m)))) 
-    in let prod = fix prodaux in prod 12 5;;
-print_string "
-    ---- Lists test ----
-";;
-x = cons[Nat] 7 (cons[Nat] 8 nil[Nat]);;
-head[Nat] x;;
-tail[Nat] x;;
-let isnilnat = L x:List[Nat]. if (isnil[Nat] x) then 0 else 1 in isnilnat (cons[Nat] 8 nil[Nat]);;
-letrec sum : Nat -> Nat -> Nat =
-     lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m)
-   in
-     letrec length : List[Nat] -> Nat =
-       lambda l : List[Nat]. if isnil[Nat] l then 0 else sum 1 (length (tail[Nat] l))
-     in
-       length (cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat])))
-print_string "
-    ---- Tuple test ----
-";;
-x = (1,2);;
-x.1;;
-(1, "string").2;;
-y = ("string2", 9);;
-y.1;;
-y.2;;
-z = (1, "string", 314);;
-z.1;;
-z.2;;
-z.3;;
-y.1 ^ z.2;;
-letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in sum (z.3) (y.2);;
-print_string "
-    ---- Records test ----
-";;
-x = {f1: 1, f2: "str ", f3: (), f4: 9, f5: true};;
-if x.f5
-    then print_string "true"
-    else "false";;
-x.f2 ^ x.f2;;
+sort_tuples = lambda f : ((Nat,) -> (Nat,) -> Bool). lambda l : [(Nat,)].
+  letrec insert : [(Nat,)] -> (Nat,) -> [(Nat,)] =
+    lambda l : [(Nat,)]. lambda x : (Nat,).
+      if isnil[(Nat,)] l then (Nat,)[x] else (
+        if f (head[(Nat,)] l) x then
+          cons[(Nat,)] x l
+        else
+          cons[(Nat,)] (head[(Nat,)] l) (insert (tail[(Nat,)] l) x)
+      )
+  in letrec internal : [(Nat,)] -> [(Nat,)] -> [(Nat,)] =
+    lambda l : [(Nat,)]. lambda acc : [(Nat,)]. 
+      if isnil[(Nat,)] l then acc else internal (tail[(Nat,)] l) (insert acc (head[(Nat,)] l))
+  in internal l (Nat,)[]
+;;
+
+is_tuple_more_equal = letrec r : (Nat,) -> (Nat,) -> Bool = 
+  L a:(Nat,). L b:(Nat,).
+    if iszero a.1 then false else (
+      if iszero b.1 then true else r (pred a.1,) (pred b.1,)
+    )
+in r;;
+
+sort_tuples is_tuple_more_equal (Nat,)[(4, "some_data_goes_here"), (3, {name: "value"}), (1, "sorted"), (7, true)];;
+sort_tuples (L a:(Nat,). L b:(Nat,). if is_tuple_more_equal a b then false else true)
+  (Nat,)[(4, "epic"), (3, {name: "value"}), (1, "sorted"), (7, true)];;

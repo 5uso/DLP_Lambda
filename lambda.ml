@@ -387,8 +387,8 @@ and isval tm = match tm with
   | TmUnit  -> true
   | TmAbs _ -> true
   | TmStr _ -> true
-  | TmTuple _ -> true
-  | TmRecord _ -> true
+  | TmTuple terms -> List.fold_left (&&) true (List.rev_map isval terms)
+  | TmRecord entries -> List.fold_left (&&) true (List.rev_map (function (_, x) -> isval x) entries)
   | t when isnumericval t -> true
   | t when islistval t -> true
   | _ -> false
@@ -815,15 +815,23 @@ let rec eval1 ctx tm = match tm with
       subst ctx x tm t2
 
     (* E-Fix *)
-  | TmFix (t1) ->
+  | TmFix t1 ->
       let t1' = eval1 ctx t1 in
       TmFix(t1')
 
-    (* E-Var *)
-  | TmVar (y) ->
+    (* E-Var: Replaces global variables *)
+  | TmVar y ->
       (try (match getbinding ctx y with (_, _, value) -> value) with
       _ -> raise (Type_error ("no binding value for variable " ^ y)))
       
+    (* E-Tuple: Evaluates inner tuple terms when needed *)
+  | TmTuple terms when not (isval tm) ->
+      TmTuple (List.map (function t -> if isval t then t else eval1 ctx t) terms)
+
+    (* E-Record: Evaluates inner record terms when needed *)
+  | TmRecord entries when not (isval tm) ->
+      TmRecord (List.map (function (n, t) -> if isval t then (n, t) else (n, eval1 ctx t)) entries)
+
     (* E-Access1: Access tuple when it's a pure value *)
   | TmAccess (t, n) when isval t ->
       (match t with
